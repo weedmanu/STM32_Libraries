@@ -123,12 +123,12 @@ void scroll_text_left(char* text, uint8_t columns) {
 	uint16_t text_len = strlen(text);                     	// Longueur du texte
 	uint8_t i;                                              // Variable pour la boucle
 	for (i = 0; i < text_len; i++) {                        // Afficher le texte caractère par caractère en défilement vers la gauche
-		lcd_set_cursor(1, 0);								// Placer le curseur à la ligne 1, colonne 0
-		lcd_write_string(&text[text_len - i - 1]);         	// Afficher le texte en commençant par le dernier caractère
-		for (uint8_t j = i + 1; j < columns; j++) {        	// Remplir le reste de la ligne avec des espaces
-			lcd_write_char(' ');                      		// Afficher un espace
+		lcd_set_cursor(1, 0);				// Placer le curseur à la ligne 1, colonne 0
+		lcd_write_string(&text[text_len - i - 1]);      // Afficher le texte en commençant par le dernier caractère
+		for (uint8_t j = i + 1; j < columns; j++) {     // Remplir le reste de la ligne avec des espaces
+			lcd_write_char(' ');                    // Afficher un espace
 		}
-		HAL_Delay(300);                                     // Délai pour le défilement
+		HAL_Delay(300);                                 // Délai pour le défilement
 	}
 }
 /* USER CODE END 0 */
