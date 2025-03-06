@@ -30,4 +30,4 @@ et choisir le votre I2C dans la fonction **lcd_init**, exemple :
 ```c
      lcd_init(&hi2c1, COLUMNS, ROWS, I2C_ADDRESS);
  ```
-5. le printf revoie vers l'UART2, à adapter dans USER CODE BEGIN 4 (utilisé dans la librairie pour le debug)
+5. le printf revoie vers l'UART2, à adapter dans USER CODE BEGIN 4 *(utilisé dans la librairie pour le debug)*
