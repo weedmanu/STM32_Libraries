@@ -1,15 +1,15 @@
 
 /* USER CODE BEGIN Includes */
-#include <stdio.h>      	  // Inclut la bibliothèque standard d'entrée-sortie pour utiliser printf
-#include <string.h>     	  // Inclut la bibliothèque de manipulation de chaînes de caractères pour utiliser strlen
-#include "STM32_I2C_LCD.h" 	// Inclut le fichier d'en-tête pour la gestion de l'écran LCD via I2C
+#include <stdio.h>      	 	// Inclut la bibliothèque standard d'entrée-sortie pour utiliser printf
+#include <string.h>     	  	// Inclut la bibliothèque de manipulation de chaînes de caractères pour utiliser strlen
+#include "STM32_I2C_LCD.h" 		// Inclut le fichier d'en-tête pour la gestion de l'écran LCD via I2C
 /* USER CODE END Includes */
 
 
 /* USER CODE BEGIN PD */
-#define COLUMNS		20	 	  // Nombre de colonnes de l'écran LCD
-#define ROWS		4     	  // Nombre de lignes de l'écran LCD
-#define I2C_ADDRESS 0x3f	// Adresse I2C de l'écran LCD
+#define COLUMNS		20		// Nombre de colonnes de l'écran LCD
+#define ROWS		4     		// Nombre de lignes de l'écran LCD
+#define I2C_ADDRESS 0x3f		// Adresse I2C de l'écran LCD
 /* USER CODE END PD */
 
 
@@ -18,7 +18,7 @@ uint8_t mode = 0;
 // Définition des caractères personnalisés : https://maxpromer.github.io/LCD-Character-Creator/
 uint8_t HeartChar[8] = {0x00, 0x0a, 0x15, 0x11, 0x0a, 0x04, 0x00, 0x00}; 		// Tableau représentant un caractère personnalisé "cœur"
 uint8_t DegreeChar[8] = {0x07, 0x05, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00}; 		// Tableau représentant un caractère personnalisé "degré"
-uint8_t ArrowDownChar[8] = {0x00, 0x04, 0x04, 0x04, 0x04, 0x1F, 0x0E, 0x04}; 	// Tableau représentant un caractère personnalisé "flèche vers le bas"
+uint8_t ArrowDownChar[8] = {0x00, 0x04, 0x04, 0x04, 0x04, 0x1F, 0x0E, 0x04}; 		// Tableau représentant un caractère personnalisé "flèche vers le bas"
 uint8_t ArrowUpChar[8] = {0x04, 0x0E, 0x1F, 0x04, 0x04, 0x04, 0x04, 0x00}; 		// Tableau représentant un caractère personnalisé "flèche vers le haut"
 uint8_t ManChar[8] = {0x1F, 0x15, 0x1F, 0x11, 0x1F, 0x0A, 0x0A, 0x1B}; 			// Tableau représentant un caractère personnalisé "homme"
 /* USER CODE END PV */
@@ -79,18 +79,18 @@ void display_ascii(uint8_t columns, uint8_t rows) {
 	lcd_set_cursor(0, 0);                               // Placer le curseur à la ligne 0, colonne 0
 	lcd_write_string("Ascii Chars:");                   // Écrire le texte "Ascii Chars:"
 	for (i = start_char; i <= end_char; i += 16) {      // Parcourir les caractères ASCII par groupe de 16
-		for (j = 0; j < 16; j++) {                      // Parcourir les 16 caractères du groupe
-			if ((i + j) <= end_char) {                  // Vérifier si le caractère est dans la plage ASCII
-				ascii_group[j] = i + j;                 // Stocker le caractère ASCII dans le tableau
-			} else {                                    // Si le caractère n'est pas dans la plage ASCII
-				ascii_group[j] = ' ';                   // Remplir avec des espaces si nécessaire
+		for (j = 0; j < 16; j++) {                  // Parcourir les 16 caractères du groupe
+			if ((i + j) <= end_char) {          // Vérifier si le caractère est dans la plage ASCII
+				ascii_group[j] = i + j;     // Stocker le caractère ASCII dans le tableau
+			} else {                            // Si le caractère n'est pas dans la plage ASCII
+				ascii_group[j] = ' ';       // Remplir avec des espaces si nécessaire
 			}
 		}
-		lcd_set_cursor(1, 0);                           // Placer le curseur à la ligne 1, colonne 0
-		for (j = 0; j < 16; j++) {                      // Parcourir les 16 caractères du groupe
-			lcd_send_data(ascii_group[j]);              // Envoyer le caractère ASCII à l'écran LCD
+		lcd_set_cursor(1, 0);                       // Placer le curseur à la ligne 1, colonne 0
+		for (j = 0; j < 16; j++) {                  // Parcourir les 16 caractères du groupe
+			lcd_send_data(ascii_group[j]);      // Envoyer le caractère ASCII à l'écran LCD
 		}
-		HAL_Delay(2000);                                // Attendre 2 secondes avant d'afficher le groupe suivant
+		HAL_Delay(2000);                            // Attendre 2 secondes avant d'afficher le groupe suivant
 	}
 }
 
