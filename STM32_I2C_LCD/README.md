@@ -20,8 +20,8 @@ Il faudra adapter le USER CODE BEGIN PD :
 
 ```c
      /* USER CODE BEGIN PD */
-     #define COLUMNS	20	 // Nombre de colonnes de l'écran LCD
-     #define ROWS		4     // Nombre de lignes de l'écran LCD
+     #define COLUMNS     20	 // Nombre de colonnes de l'écran LCD
+     #define ROWS        4     // Nombre de lignes de l'écran LCD
      #define I2C_ADDRESS 0x3f	 // Adresse I2C de l'écran LCD
      /* USER CODE END PD */
 ```
