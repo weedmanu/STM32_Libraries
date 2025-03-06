@@ -16,7 +16,7 @@ static uint8_t backlight_state = 1;                         // État du rétroé
 static LCD_Config lcd_config;                               // Configuration de l'écran LCD
 
 // Prototypes des fonctions privées
-static void lcd_write_nibble(uint8_t nibble, uint8_t rs); 	// Fonction pour écrire un demi-octet sur le LCD
+static void lcd_write_nibble(uint8_t nibble, uint8_t rs);   // Fonction pour écrire un demi-octet sur le LCD
 static void lcd_send_cmd(uint8_t cmd);                      // Fonction pour envoyer une commande au LCD
 
 
