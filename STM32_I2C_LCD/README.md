@@ -14,7 +14,7 @@
      void lcd_init(I2C_HandleTypeDef *hi2c, uint8_t columns, uint8_t rows, uint8_t i2c_address);
 ```
 
-4. Le fichier **USER_CODE_main.c** contient tous les block de code nécessaires pour faire un programme de demo de la librairies. 
+4. Le fichier **USER_CODE_main.c** contient tous les block de code nécessaires à copier pour faire un programme de demo de la librairies. 
 
 Il faudra adapter le USER CODE BEGIN PD : 
 
