@@ -1,6 +1,6 @@
-#include "STM32_I2C_LCD.h" 		// Inclut le fichier d'en-tête pour la gestion de l'écran LCD via I2C
-#include <string.h>         	// Inclut la bibliothèque de manipulation de chaînes de caractères
-#include <stdio.h>          	// Inclut la bibliothèque standard d'entrée-sortie pour utiliser printf
+#include "STM32_I2C_LCD.h"        // Inclut le fichier d'en-tête pour la gestion de l'écran LCD via I2C
+#include <string.h>               // Inclut la bibliothèque de manipulation de chaînes de caractères
+#include <stdio.h>          	  // Inclut la bibliothèque standard d'entrée-sortie pour utiliser printf
 
 // Structure de configuration de l'écran LCD
 typedef struct {
