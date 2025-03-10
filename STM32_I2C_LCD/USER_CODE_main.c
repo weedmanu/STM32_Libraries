@@ -14,11 +14,11 @@
 
 
 /* USER CODE BEGIN PV */
-uint8_t mode = 0;
+uint8_t mode = 0; // Variable pour suivre le mode d'affichage actuel
 // Définition des caractères personnalisés : https://maxpromer.github.io/LCD-Character-Creator/
 uint8_t HeartChar[8] = {0x00, 0x0a, 0x15, 0x11, 0x0a, 0x04, 0x00, 0x00}; 		// Tableau représentant un caractère personnalisé "cœur"
 uint8_t DegreeChar[8] = {0x07, 0x05, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00}; 		// Tableau représentant un caractère personnalisé "degré"
-uint8_t ArrowDownChar[8] = {0x00, 0x04, 0x04, 0x04, 0x04, 0x1F, 0x0E, 0x04}; 		// Tableau représentant un caractère personnalisé "flèche vers le bas"
+uint8_t ArrowDownChar[8] = {0x00, 0x04, 0x04, 0x04, 0x04, 0x1F, 0x0E, 0x04}; 	// Tableau représentant un caractère personnalisé "flèche vers le bas"
 uint8_t ArrowUpChar[8] = {0x04, 0x0E, 0x1F, 0x04, 0x04, 0x04, 0x04, 0x00}; 		// Tableau représentant un caractère personnalisé "flèche vers le haut"
 uint8_t ManChar[8] = {0x1F, 0x15, 0x1F, 0x11, 0x1F, 0x0A, 0x0A, 0x1B}; 			// Tableau représentant un caractère personnalisé "homme"
 /* USER CODE END PV */
@@ -44,25 +44,40 @@ void initialize_custom_chars() {
  * @retval None
  */
 void display_custom_chars(uint8_t columns) {
-	// Afficher les caractères personnalisés sur l'écran LCD
-	lcd_set_cursor(0, 0);                     // Placer le curseur à la ligne 0, colonne 0
-	lcd_write_string("Custom Chars: ");       // Écrire le texte "Custom Chars: "
+    lcd_set_cursor(0, 0); // Placer le curseur à la ligne 0, colonne 0
+    lcd_write_string("Custom Chars: "); // Écrire le texte "Custom Chars: "
 
-	// Afficher chaque caractère personnalisé à une position spécifique
-	lcd_set_cursor(1, 0);   // Placer le curseur à la ligne 1, colonne 0
-	lcd_put_custom_char(0); // Cœur
+    if (columns == 16) { 		// Configuration pour un écran 16x2
+        lcd_set_cursor(1, 0); 		// Placer le curseur à la ligne 1, colonne 0
+        lcd_put_custom_char(0); 	// Cœur
 
-	lcd_set_cursor(1, 2);   // Placer le curseur à la ligne 1, colonne 2
-	lcd_put_custom_char(1); // Degré
+        lcd_set_cursor(1, 2); 		// Placer le curseur à la ligne 1, colonne 2
+        lcd_put_custom_char(1); 	// Degré
 
-	lcd_set_cursor(1, 4);   // Placer le curseur à la ligne 1, colonne 4
-	lcd_put_custom_char(2); // Flèche vers le bas
+        lcd_set_cursor(1, 4); 		// Placer le curseur à la ligne 1, colonne 4
+        lcd_put_custom_char(2); 	// Flèche vers le bas
 
-	lcd_set_cursor(1, 6);   // Placer le curseur à la ligne 1, colonne 6
-	lcd_put_custom_char(3); // Flèche vers le haut
+        lcd_set_cursor(1, 6); 		// Placer le curseur à la ligne 1, colonne 6
+        lcd_put_custom_char(3); 	// Flèche vers le haut
 
-	lcd_set_cursor(1, 8);   // Placer le curseur à la ligne 1, colonne 8
-	lcd_put_custom_char(4); // Homme
+        lcd_set_cursor(1, 8); 		// Placer le curseur à la ligne 1, colonne 8
+        lcd_put_custom_char(4); 	// Homme
+    } else if (columns == 20) { // Configuration pour un écran 20x4
+        lcd_set_cursor(2, 0);		// Placer le curseur à la ligne 2, colonne 0
+        lcd_put_custom_char(0);     // Cœur
+
+        lcd_set_cursor(2, 2);       // Placer le curseur à la ligne 2, colonne 2
+        lcd_put_custom_char(1);		// Degré
+
+        lcd_set_cursor(2, 4);		// Placer le curseur à la ligne 1, colonne 4
+        lcd_put_custom_char(2);		// Flèche vers le bas
+
+        lcd_set_cursor(2, 6);		// Placer le curseur à la ligne 1, colonne 6
+        lcd_put_custom_char(3);		// Flèche vers le haut
+
+        lcd_set_cursor(2, 8);		// Placer le curseur à la ligne 1, colonne 8
+        lcd_put_custom_char(4);		// Homme
+    }
 }
 
 /**
@@ -72,26 +87,39 @@ void display_custom_chars(uint8_t columns) {
  * @retval None
  */
 void display_ascii(uint8_t columns, uint8_t rows) {
-	char ascii_group[columns];                          // Tableau pour stocker 16 caractères ASCII
-	uint8_t start_char = 32;                            // Commencer à l'espace (caractère 32)
-	uint8_t end_char = 126;                             // Finir au tilde (caractère 126)
-	uint8_t i, j;                                       // Variables pour les boucles
-	lcd_set_cursor(0, 0);                               // Placer le curseur à la ligne 0, colonne 0
-	lcd_write_string("Ascii Chars:");                   // Écrire le texte "Ascii Chars:"
-	for (i = start_char; i <= end_char; i += 16) {      // Parcourir les caractères ASCII par groupe de 16
-		for (j = 0; j < 16; j++) {                  // Parcourir les 16 caractères du groupe
-			if ((i + j) <= end_char) {          // Vérifier si le caractère est dans la plage ASCII
-				ascii_group[j] = i + j;     // Stocker le caractère ASCII dans le tableau
-			} else {                            // Si le caractère n'est pas dans la plage ASCII
-				ascii_group[j] = ' ';       // Remplir avec des espaces si nécessaire
-			}
-		}
-		lcd_set_cursor(1, 0);                       // Placer le curseur à la ligne 1, colonne 0
-		for (j = 0; j < 16; j++) {                  // Parcourir les 16 caractères du groupe
-			lcd_send_data(ascii_group[j]);      // Envoyer le caractère ASCII à l'écran LCD
-		}
-		HAL_Delay(2000);                            // Attendre 2 secondes avant d'afficher le groupe suivant
-	}
+    char ascii_group[rows][columns]; // Tableau pour stocker les caractères ASCII pour chaque ligne
+    uint8_t start_char = 32;         // Commencer à l'espace (caractère 32)
+    uint8_t end_char = 126;          // Finir au tilde (caractère 126)
+    uint8_t i, j, k;                 // Variables pour les boucles
+    uint8_t total_chars = end_char - start_char + 1; // Nombre total de caractères ASCII
+    uint8_t chars_per_page = columns * rows; // Nombre de caractères par page
+    uint8_t num_pages = (total_chars + chars_per_page - 1) / chars_per_page; // Nombre total de pages
+
+    lcd_set_cursor(0, 0);
+    lcd_write_string("Ascii Chars:"); // Écrire le texte "Ascii Chars:"
+
+    for (k = 0; k < num_pages; k++) { // Boucle pour chaque page
+        for (i = 0; i < rows; i++) { // Boucle pour chaque ligne
+            for (j = 0; j < columns; j++) { // Boucle pour chaque colonne
+                uint8_t char_index = k * chars_per_page + i * columns + j;
+                if (char_index < total_chars) {
+                    ascii_group[i][j] = start_char + char_index; // Stocker le caractère ASCII dans le tableau
+                } else {
+                    ascii_group[i][j] = ' '; // Remplir avec des espaces si nécessaire
+                }
+            }
+        }
+
+        for (i = 0; i < rows; i++) { // Afficher les caractères sur l'écran LCD
+            lcd_set_cursor(i, 0);
+            for (j = 0; j < columns; j++) {
+                lcd_send_data(ascii_group[i][j]); // Envoyer le caractère ASCII à l'écran LCD
+            }
+        }
+
+        HAL_Delay(2000); // Attendre 2 secondes avant d'afficher la page suivante
+        lcd_clear(); // Effacer l'écran avant d'afficher la page suivante
+    }
 }
 
 /**
@@ -142,6 +170,7 @@ printf("Test LIB LCD\n\r");                       // Écriture dans la console s
 lcd_init(&hi2c1, COLUMNS, ROWS, I2C_ADDRESS);     // Initialisation de l'écran
 lcd_clear();                                      // Effacer l'écran
 lcd_backlight(1);                                 // Allumer le rétroéclairage
+initialize_custom_chars();                        // Appel de la fonction pour initialiser les caractères personnalisés
 
 // Affichage de texte sur l'écran
 lcd_set_cursor(0, 0);                             // Placer le curseur ligne 0 colonne 0
