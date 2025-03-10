@@ -182,32 +182,38 @@ HAL_Delay(3000);                                  // Attendre 3 secondes
 
 /* USER CODE BEGIN WHILE */
 while (1) {
-    lcd_clear();                                    // Efface l'écran LCD
-    switch (mode) {                                 // Sélectionne le mode d'affichage
-    case 0:                                         // Mode 0
-        display_ascii(COLUMNS, ROWS);                 // Affiche les caractères ASCII
-        break;                                        // Sortie de la boucle
-    case 1:                                         // Mode 1
-        display_custom_chars(COLUMNS);                // Affiche les caractères personnalisés
-        break;                                        // Sortie de la boucle
+    switch (mode) { // Sélectionne le mode d'affichage
+    case 0:
+        display_ascii(COLUMNS, ROWS); // Affiche les caractères ASCII
+        break;
+    case 1:
+        display_custom_chars(COLUMNS); // Affiche les caractères personnalisés
+        break;
     case 2:
-        lcd_set_cursor(0, 0); // Placer le curseur à la ligne 0, colonne 0
-        lcd_write_string("Scroll Right:"); // Écrire le texte "Scroll Right:"
-        lcd_set_cursor(1, 0); // Placer le curseur à la ligne 1, colonne 0
-        lcd_write_string("Hello !!!"); // Écrire le texte à défiler
-        scroll_text_right("Hello !!!", COLUMNS); // Faire défiler le texte vers la droite
+        lcd_set_cursor(0, 0); // Place le curseur à la ligne 0, colonne 0
+        lcd_write_string("Scroll Right:"); // Écrit le texte "Scroll Right:"
+        lcd_set_cursor(1, 0); // Place le curseur à la ligne 1, colonne 0
+        lcd_write_string("Hello !!!"); // Écrit le texte à défiler
+        for (uint8_t i = 0; i < COLUMNS; i++) { // Défile le texte vers la droite
+            scroll_text_right("Hello !!!", COLUMNS);
+            HAL_Delay(500); // Délai pour le défilement
+        }
         break;
     case 3:
-        lcd_set_cursor(0, 0); // Placer le curseur à la ligne 0, colonne 0
-        lcd_write_string("Scroll Left: "); // Écrire le texte "Scroll Left: "
-        lcd_set_cursor(1, 0); // Placer le curseur à la ligne 1, colonne 0
-        lcd_write_string("Hello !!!"); // Écrire le texte à défiler
-        scroll_text_left("Hello !!!", COLUMNS); // Faire défiler le texte vers la gauche
+        lcd_set_cursor(0, 0); // Place le curseur à la ligne 0, colonne 0
+        lcd_write_string("Scroll Left: "); // Écrit le texte "Scroll Left: "
+        lcd_set_cursor(1, 0); // Place le curseur à la ligne 1, colonne 0
+        lcd_write_string("Hello !!!"); // Écrit le texte à défiler
+        for (uint8_t i = 0; i < COLUMNS; i++) { // Défile le texte vers la gauche
+            scroll_text_left("Hello !!!", COLUMNS);
+            HAL_Delay(500); // Délai pour le défilement
+        }
         break;
     }
-HAL_Delay(3000);                                // Attendre 3 secondes avant de changer de mode
-mode = (mode + 1) % 4;                          // Changer de mode à chaque itération
-/* USER CODE END WHILE */
+    HAL_Delay(2000); // Attendre 3 secondes avant de changer de mode
+    mode = (mode + 1) % 4; // Changer de mode à chaque itération
+    lcd_clear();
+    /* USER CODE END WHILE */
 
 
 /* USER CODE BEGIN 4 */
