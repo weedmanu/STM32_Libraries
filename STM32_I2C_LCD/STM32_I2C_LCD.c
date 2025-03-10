@@ -183,20 +183,55 @@ void lcd_send_data(uint8_t data) {          // Envoie des données au LCD
 }
 
 /**
- * @brief Fait défiler le texte vers la droite sur l'écran LCD
- * @param  text: Chaîne de caractères à faire défiler
- * @param  columns: Nombre de colonnes de l'écran LCD
+ * @brief Fonction pour faire défiler le texte vers la droite
+ * @param text: Chaîne de caractères à faire défiler
+ * @param columns: Nombre de colonnes de l'écran LCD
  * @retval None
  */
-void lcd_scroll_right(void) {
-    lcd_send_cmd(0x1E);                     // Envoie de la commande pour faire défiler le texte vers la droite
+void scroll_text_right(char* text, uint8_t columns) {
+    uint16_t text_len = strlen(text); // Longueur du texte
+    uint8_t i;                        // Variable pour la boucle
+
+    for (i = 0; i < text_len; i++) { // Afficher le texte caractère par caractère en défilement vers la droite
+        lcd_set_cursor(1, 0);         // Placer le curseur à la ligne 1, colonne 0
+        lcd_write_string(&text[i]);   // Afficher le texte en commençant par le caractère actuel
+
+        // Remplir le reste de la ligne avec des espaces pour effacer les caractères précédents
+        for (uint8_t j = 0; j < columns - (text_len - i); j++) {
+            lcd_write_char(' ');      // Afficher un espace
+        }
+
+        HAL_Delay(300);               // Délai pour le défilement
+    }
+
+    // Effacer l'écran après le défilement
+    lcd_clear();
 }
 
+
 /**
- * @brief Fait défiler le texte vers la gauche sur l'écran LCD
- * @param  None
+ * @brief Fonction pour faire défiler le texte vers la gauche
+ * @param text: Chaîne de caractères à faire défiler
+ * @param columns: Nombre de colonnes de l'écran LCD
  * @retval None
  */
-void lcd_scroll_left(void) {
-    lcd_send_cmd(0x18);                     // Envoie de la commande pour faire défiler le texte vers la gauche
+void scroll_text_left(char* text, uint8_t columns) {
+    uint16_t text_len = strlen(text); // Longueur du texte
+    uint8_t i;                        // Variable pour la boucle
+
+    for (i = 0; i < text_len; i++) { // Afficher le texte caractère par caractère en défilement vers la gauche
+        lcd_set_cursor(1, 0);         // Placer le curseur à la ligne 1, colonne 0
+        lcd_write_string(&text[text_len - i - 1]); // Afficher le texte en commençant par le dernier caractère
+
+        // Remplir le reste de la ligne avec des espaces pour effacer les caractères précédents
+        for (uint8_t j = 0; j < columns - (text_len - i); j++) {
+            lcd_write_char(' ');      // Afficher un espace
+        }
+
+        HAL_Delay(300);               // Délai pour le défilement
+    }
+
+    // Effacer l'écran après le défilement
+    lcd_clear();
 }
+

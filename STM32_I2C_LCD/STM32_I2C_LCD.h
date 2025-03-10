@@ -73,12 +73,12 @@ void lcd_put_custom_char(uint8_t location);
 /**
  * @brief Fait défiler le texte vers la gauche.
  */
-void lcd_scroll_left(void);
+void scroll_text_left(char* text, uint8_t columns);
 
 /**
  * @brief Fait défiler le texte vers la droite.
  */
-void lcd_scroll_right(void);
+void scroll_text_right(char* text, uint8_t columns);
 
 /**
  * @brief Envoie des données au LCD.

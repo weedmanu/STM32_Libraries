@@ -182,27 +182,31 @@ HAL_Delay(3000);                                  // Attendre 3 secondes
 
 /* USER CODE BEGIN WHILE */
 while (1) {
-  lcd_clear();                                    // Efface l'écran LCD
-  switch (mode) {                                 // Sélectionne le mode d'affichage
-  case 0:                                         // Mode 0
-    display_ascii(COLUMNS, ROWS);                 // Affiche les caractères ASCII
-    break;                                        // Sortie de la boucle
-  case 1:                                         // Mode 1
-    display_custom_chars(COLUMNS);                // Affiche les caractères personnalisés
-    break;                                        // Sortie de la boucle
-  case 2:                                         // Mode 2
-    lcd_set_cursor(0, 0);                         // Place le curseur à la ligne 0, colonne 0
-    lcd_write_string("Scroll Right:");            // Écrit le texte "Scroll Right:"
-    scroll_text_right("Hello !!!", COLUMNS);      // Fait défiler le texte vers la droite
-    break;                                        // Sortie de la boucle
-  case 3:                                         // Mode 3
-    lcd_set_cursor(0, 0);                         // Place le curseur à la ligne 0, colonne 0
-    lcd_write_string("Scroll Left: ");            // Écrit le texte "Scroll Left: "
-    scroll_text_left("Hello !!!", COLUMNS);       // Fait défiler le texte vers la gauche
-    break;                                        // Sortie de la boucle
-  }
-  HAL_Delay(3000);                                // Attendre 3 secondes avant de changer de mode
-  mode = (mode + 1) % 4;                          // Changer de mode à chaque itération
+    lcd_clear();                                    // Efface l'écran LCD
+    switch (mode) {                                 // Sélectionne le mode d'affichage
+    case 0:                                         // Mode 0
+        display_ascii(COLUMNS, ROWS);                 // Affiche les caractères ASCII
+        break;                                        // Sortie de la boucle
+    case 1:                                         // Mode 1
+        display_custom_chars(COLUMNS);                // Affiche les caractères personnalisés
+        break;                                        // Sortie de la boucle
+    case 2:
+        lcd_set_cursor(0, 0); // Placer le curseur à la ligne 0, colonne 0
+        lcd_write_string("Scroll Right:"); // Écrire le texte "Scroll Right:"
+        lcd_set_cursor(1, 0); // Placer le curseur à la ligne 1, colonne 0
+        lcd_write_string("Hello !!!"); // Écrire le texte à défiler
+        scroll_text_right("Hello !!!", COLUMNS); // Faire défiler le texte vers la droite
+        break;
+    case 3:
+        lcd_set_cursor(0, 0); // Placer le curseur à la ligne 0, colonne 0
+        lcd_write_string("Scroll Left: "); // Écrire le texte "Scroll Left: "
+        lcd_set_cursor(1, 0); // Placer le curseur à la ligne 1, colonne 0
+        lcd_write_string("Hello !!!"); // Écrire le texte à défiler
+        scroll_text_left("Hello !!!", COLUMNS); // Faire défiler le texte vers la gauche
+        break;
+    }
+HAL_Delay(3000);                                // Attendre 3 secondes avant de changer de mode
+mode = (mode + 1) % 4;                          // Changer de mode à chaque itération
 /* USER CODE END WHILE */
 
 
