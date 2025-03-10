@@ -72,7 +72,7 @@ void display_custom_chars(uint8_t columns) {
  * @retval None
  */
 void display_ascii(uint8_t columns, uint8_t rows) {
-	char ascii_group[16];                               // Tableau pour stocker 16 caractères ASCII
+	char ascii_group[columns];                          // Tableau pour stocker 16 caractères ASCII
 	uint8_t start_char = 32;                            // Commencer à l'espace (caractère 32)
 	uint8_t end_char = 126;                             // Finir au tilde (caractère 126)
 	uint8_t i, j;                                       // Variables pour les boucles
