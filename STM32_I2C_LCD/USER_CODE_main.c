@@ -1,17 +1,14 @@
-
 /* USER CODE BEGIN Includes */
-#include <stdio.h>      	 	// Inclut la bibliothèque standard d'entrée-sortie pour utiliser printf
-#include <string.h>     	  	// Inclut la bibliothèque de manipulation de chaînes de caractères pour utiliser strlen
-#include "STM32_I2C_LCD.h" 		// Inclut le fichier d'en-tête pour la gestion de l'écran LCD via I2C
+#include <stdio.h>      	  // Inclut la bibliothèque standard d'entrée-sortie pour utiliser printf
+#include <string.h>     	  // Inclut la bibliothèque de manipulation de chaînes de caractères pour utiliser strlen
+#include "STM32_I2C_LCD.h" 	// Inclut le fichier d'en-tête pour la gestion de l'écran LCD via I2C
 /* USER CODE END Includes */
 
-
 /* USER CODE BEGIN PD */
-#define COLUMNS		20		// Nombre de colonnes de l'écran LCD
-#define ROWS		4     		// Nombre de lignes de l'écran LCD
-#define I2C_ADDRESS 0x3f		// Adresse I2C de l'écran LCD
+#define COLUMNS		20	 	  // Nombre de colonnes de l'écran LCD
+#define ROWS		4     	  // Nombre de lignes de l'écran LCD
+#define I2C_ADDRESS 0x3f	  // Adresse I2C de l'écran LCD
 /* USER CODE END PD */
-
 
 /* USER CODE BEGIN PV */
 uint8_t mode = 0; // Variable pour suivre le mode d'affichage actuel
@@ -22,7 +19,6 @@ uint8_t ArrowDownChar[8] = {0x00, 0x04, 0x04, 0x04, 0x04, 0x1F, 0x0E, 0x04}; 	//
 uint8_t ArrowUpChar[8] = {0x04, 0x0E, 0x1F, 0x04, 0x04, 0x04, 0x04, 0x00}; 		// Tableau représentant un caractère personnalisé "flèche vers le haut"
 uint8_t ManChar[8] = {0x1F, 0x15, 0x1F, 0x11, 0x1F, 0x0A, 0x0A, 0x1B}; 			// Tableau représentant un caractère personnalisé "homme"
 /* USER CODE END PV */
-
 
 /* USER CODE BEGIN 0 */
 /**
@@ -44,40 +40,41 @@ void initialize_custom_chars() {
  * @retval None
  */
 void display_custom_chars(uint8_t columns) {
-    lcd_set_cursor(0, 0); // Placer le curseur à la ligne 0, colonne 0
-    lcd_write_string("Custom Chars: "); // Écrire le texte "Custom Chars: "
+	lcd_set_cursor(0, 0); // Placer le curseur à la ligne 0, colonne 0
+	lcd_write_string("Custom Chars: "); // Écrire le texte "Custom Chars: "
 
-    if (columns == 16) { 		// Configuration pour un écran 16x2
-        lcd_set_cursor(1, 0); 		// Placer le curseur à la ligne 1, colonne 0
-        lcd_put_custom_char(0); 	// Cœur
+	if (columns == 16) { 		// Configuration pour un écran 16x2
+		lcd_set_cursor(1, 0); 		// Placer le curseur à la ligne 1, colonne 0
+		lcd_put_custom_char(0); 	// Cœur
 
-        lcd_set_cursor(1, 2); 		// Placer le curseur à la ligne 1, colonne 2
-        lcd_put_custom_char(1); 	// Degré
+		lcd_set_cursor(1, 2); 		// Placer le curseur à la ligne 1, colonne 2
+		lcd_put_custom_char(1); 	// Degré
 
-        lcd_set_cursor(1, 4); 		// Placer le curseur à la ligne 1, colonne 4
-        lcd_put_custom_char(2); 	// Flèche vers le bas
+		lcd_set_cursor(1, 4); 		// Placer le curseur à la ligne 1, colonne 4
+		lcd_put_custom_char(2); 	// Flèche vers le bas
 
-        lcd_set_cursor(1, 6); 		// Placer le curseur à la ligne 1, colonne 6
-        lcd_put_custom_char(3); 	// Flèche vers le haut
+		lcd_set_cursor(1, 6); 		// Placer le curseur à la ligne 1, colonne 6
+		lcd_put_custom_char(3); 	// Flèche vers le haut
 
-        lcd_set_cursor(1, 8); 		// Placer le curseur à la ligne 1, colonne 8
-        lcd_put_custom_char(4); 	// Homme
-    } else if (columns == 20) { // Configuration pour un écran 20x4
-        lcd_set_cursor(2, 0);		// Placer le curseur à la ligne 2, colonne 0
-        lcd_put_custom_char(0);     // Cœur
+		lcd_set_cursor(1, 8); 		// Placer le curseur à la ligne 1, colonne 8
+		lcd_put_custom_char(4); 	// Homme
+	} else if (columns == 20) { // Configuration pour un écran 20x4
+		lcd_set_cursor(2, 0);		// Placer le curseur à la ligne 2, colonne 0
+		lcd_put_custom_char(0);     // Cœur
 
-        lcd_set_cursor(2, 2);       // Placer le curseur à la ligne 2, colonne 2
-        lcd_put_custom_char(1);		// Degré
+		lcd_set_cursor(2, 2);       // Placer le curseur à la ligne 2, colonne 2
+		lcd_put_custom_char(1);		// Degré
 
-        lcd_set_cursor(2, 4);		// Placer le curseur à la ligne 1, colonne 4
-        lcd_put_custom_char(2);		// Flèche vers le bas
+		lcd_set_cursor(2, 4);		// Placer le curseur à la ligne 1, colonne 4
+		lcd_put_custom_char(2);		// Flèche vers le bas
 
-        lcd_set_cursor(2, 6);		// Placer le curseur à la ligne 1, colonne 6
-        lcd_put_custom_char(3);		// Flèche vers le haut
+		lcd_set_cursor(2, 6);		// Placer le curseur à la ligne 1, colonne 6
+		lcd_put_custom_char(3);		// Flèche vers le haut
 
-        lcd_set_cursor(2, 8);		// Placer le curseur à la ligne 1, colonne 8
-        lcd_put_custom_char(4);		// Homme
-    }
+		lcd_set_cursor(2, 8);		// Placer le curseur à la ligne 1, colonne 8
+		lcd_put_custom_char(4);		// Homme
+	}
+	HAL_Delay(2000); 				// Attendre 2 secondes
 }
 
 /**
@@ -87,80 +84,39 @@ void display_custom_chars(uint8_t columns) {
  * @retval None
  */
 void display_ascii(uint8_t columns, uint8_t rows) {
-    char ascii_group[rows][columns]; // Tableau pour stocker les caractères ASCII pour chaque ligne
-    uint8_t start_char = 32;         // Commencer à l'espace (caractère 32)
-    uint8_t end_char = 126;          // Finir au tilde (caractère 126)
-    uint8_t i, j, k;                 // Variables pour les boucles
-    uint8_t total_chars = end_char - start_char + 1; // Nombre total de caractères ASCII
-    uint8_t chars_per_page = columns * rows; // Nombre de caractères par page
-    uint8_t num_pages = (total_chars + chars_per_page - 1) / chars_per_page; // Nombre total de pages
+	char ascii_group[rows][columns]; // Tableau pour stocker les caractères ASCII pour chaque ligne
+	uint8_t start_char = 32;         // Commencer à l'espace (caractère 32)
+	uint8_t end_char = 126;          // Finir au tilde (caractère 126)
+	uint8_t i, j, k;                 // Variables pour les boucles
+	uint8_t total_chars = end_char - start_char + 1; // Nombre total de caractères ASCII
+	uint8_t chars_per_page = columns * rows; // Nombre de caractères par page
+	uint8_t num_pages = (total_chars + chars_per_page - 1) / chars_per_page; // Nombre total de pages
 
-    lcd_set_cursor(0, 0);
-    lcd_write_string("Ascii Chars:"); // Écrire le texte "Ascii Chars:"
-
-    for (k = 0; k < num_pages; k++) { // Boucle pour chaque page
-        for (i = 0; i < rows; i++) { // Boucle pour chaque ligne
-            for (j = 0; j < columns; j++) { // Boucle pour chaque colonne
-                uint8_t char_index = k * chars_per_page + i * columns + j;
-                if (char_index < total_chars) {
-                    ascii_group[i][j] = start_char + char_index; // Stocker le caractère ASCII dans le tableau
-                } else {
-                    ascii_group[i][j] = ' '; // Remplir avec des espaces si nécessaire
-                }
-            }
-        }
-
-        for (i = 0; i < rows; i++) { // Afficher les caractères sur l'écran LCD
-            lcd_set_cursor(i, 0);
-            for (j = 0; j < columns; j++) {
-                lcd_send_data(ascii_group[i][j]); // Envoyer le caractère ASCII à l'écran LCD
-            }
-        }
-
-        HAL_Delay(2000); // Attendre 2 secondes avant d'afficher la page suivante
-        lcd_clear(); // Effacer l'écran avant d'afficher la page suivante
-    }
-}
-
-/**
- * @brief  Fonction pour faire défiler le texte vers la droite
- * @param  text: Chaîne de caractères à faire défiler
- * @param  columns: Nombre de colonnes de l'écran LCD
- * @retval None
- */
-void scroll_text_right(char* text, uint8_t columns) {
-	uint16_t text_len = strlen(text);                       // Longueur du texte
-	uint8_t i;                                              // Variable pour la boucle
-	for (i = 0; i < text_len; i++) {                        // Afficher le texte caractère par caractère en défilement vers la droite
-		lcd_set_cursor(1, 0);                               // Placer le curseur à la ligne 1, colonne 0
-		lcd_write_string(&text[i]);                         // Afficher le texte en commençant par le caractère actuel
-		for (uint8_t j = i + 1; j < columns; j++) {         // Remplir le reste de la ligne avec des espaces
-			lcd_write_char(' ');                            // Afficher un espace
+	lcd_set_cursor(0, 0);
+	lcd_write_string("Ascii Chars:"); // Écrire le texte "Ascii Chars:"
+	HAL_Delay(1000); // Attendre 1 secondes avant d'afficher la page suivante
+	for (k = 0; k < num_pages; k++) { // Boucle pour chaque page
+		for (i = 0; i < rows; i++) { // Boucle pour chaque ligne
+			for (j = 0; j < columns; j++) { // Boucle pour chaque colonne
+				uint8_t char_index = k * chars_per_page + i * columns + j;
+				if (char_index < total_chars) {
+					ascii_group[i][j] = start_char + char_index; // Stocker le caractère ASCII dans le tableau
+				} else {
+					ascii_group[i][j] = ' '; // Remplir avec des espaces si nécessaire
+				}
+			}
 		}
-		HAL_Delay(300);                                     // Délai pour le défilement
-	}
-}
 
-/**
- * @brief  Fonction pour faire défiler le texte vers la gauche
- * @param  text: Chaîne de caractères à faire défiler
- * @param  columns: Nombre de colonnes de l'écran LCD
- * @retval None
- */
-void scroll_text_left(char* text, uint8_t columns) {
-	uint16_t text_len = strlen(text);                     	// Longueur du texte
-	uint8_t i;                                              // Variable pour la boucle
-	for (i = 0; i < text_len; i++) {                        // Afficher le texte caractère par caractère en défilement vers la gauche
-		lcd_set_cursor(1, 0);				// Placer le curseur à la ligne 1, colonne 0
-		lcd_write_string(&text[text_len - i - 1]);      // Afficher le texte en commençant par le dernier caractère
-		for (uint8_t j = i + 1; j < columns; j++) {     // Remplir le reste de la ligne avec des espaces
-			lcd_write_char(' ');                    // Afficher un espace
+		for (i = 0; i < rows; i++) { // Afficher les caractères sur l'écran LCD
+			lcd_set_cursor(i, 0);
+			for (j = 0; j < columns; j++) {
+				lcd_send_data(ascii_group[i][j]); // Envoyer le caractère ASCII à l'écran LCD
+			}
 		}
-		HAL_Delay(300);                                 // Délai pour le défilement
+		HAL_Delay(2000); // Attendre 2 secondes avant d'afficher la page suivante
 	}
 }
 /* USER CODE END 0 */
-
 
 /* USER CODE BEGIN 2 */
 HAL_Delay(500);                                   // Délai pour les initialisations
@@ -170,14 +126,16 @@ printf("Test LIB LCD\n\r");                       // Écriture dans la console s
 lcd_init(&hi2c1, COLUMNS, ROWS, I2C_ADDRESS);     // Initialisation de l'écran
 lcd_clear();                                      // Effacer l'écran
 lcd_backlight(1);                                 // Allumer le rétroéclairage
+
+// Initialisation des caractères personnalisés
 initialize_custom_chars();                        // Appel de la fonction pour initialiser les caractères personnalisés
 
 // Affichage de texte sur l'écran
 lcd_set_cursor(0, 0);                             // Placer le curseur ligne 0 colonne 0
 lcd_write_string("Test LIB LCD");                 // Écrire sur l'écran
-lcd_set_cursor(1, 0);                             // Placer le curseur ligne 1 colonne 0
+lcd_set_cursor(1, 0);                            // Placer le curseur ligne 1 colonne 0
 lcd_write_string("Init OK");                      // Écrire sur l'écran
-HAL_Delay(3000);                                  // Attendre 3 secondes
+HAL_Delay(2000);                                  // Attendre 3 secondes
 /* USER CODE END 2 */
 
 /* USER CODE BEGIN WHILE */
@@ -193,28 +151,21 @@ while (1) {
         lcd_set_cursor(0, 0); // Place le curseur à la ligne 0, colonne 0
         lcd_write_string("Scroll Right:"); // Écrit le texte "Scroll Right:"
         lcd_set_cursor(1, 0); // Place le curseur à la ligne 1, colonne 0
-        lcd_write_string("Hello !!!"); // Écrit le texte à défiler
-        for (uint8_t i = 0; i < COLUMNS; i++) { // Défile le texte vers la droite
-            scroll_text_right("Hello !!!", COLUMNS);
-            HAL_Delay(500); // Délai pour le défilement
-        }
+        scroll_text_right("Hello !!!", COLUMNS);
+        HAL_Delay(2000); 				// Attendre 2 secondes
         break;
     case 3:
         lcd_set_cursor(0, 0); // Place le curseur à la ligne 0, colonne 0
         lcd_write_string("Scroll Left: "); // Écrit le texte "Scroll Left: "
         lcd_set_cursor(1, 0); // Place le curseur à la ligne 1, colonne 0
-        lcd_write_string("Hello !!!"); // Écrit le texte à défiler
-        for (uint8_t i = 0; i < COLUMNS; i++) { // Défile le texte vers la gauche
-            scroll_text_left("Hello !!!", COLUMNS);
-            HAL_Delay(500); // Délai pour le défilement
-        }
+        scroll_text_left("Hello !!!", COLUMNS);
+        HAL_Delay(2000); 				// Attendre 2 secondes
         break;
     }
-    HAL_Delay(2000); // Attendre 3 secondes avant de changer de mode
-    mode = (mode + 1) % 4; // Changer de mode à chaque itération
+    mode++;          			// Changer de mode à chaque itération
+    if (mode > 3) {mode = 0;}	// Remise à zero du mode
     lcd_clear();
-    /* USER CODE END WHILE */
-
+/* USER CODE END WHILE */
 
 /* USER CODE BEGIN 4 */
 // Fonction pour envoyer un caractère via UART
