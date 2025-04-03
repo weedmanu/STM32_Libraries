@@ -22,7 +22,7 @@ extern TIM_HandleTypeDef htim1;
 #define ONEWIRE_TIMER &htim1
 
 // Définir le nombre maximal de capteurs DS18B20
-#define DS18B20_MAX_SENSORS 1
+#define DS18B20_MAX_SENSORS 4
 
 // Définir la résolution par défaut des capteurs DS18B20 9, 10, 11 ou 12 bits
 #define DS18B20_DEFAULT_RESOLUTION DS18B20_Resolution_12bits
