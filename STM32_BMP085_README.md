@@ -13,7 +13,7 @@ La bibliothèque `STM32_BMP085` est conçue pour faciliter l'intégration du cap
 
 ## Tutoriel d'utilisation
 
-`On adapte le fichier config.h selon la carte STM32 et l'I2C utilisée`
+`On adapte le fichier ~~**config.h**~~ selon la carte STM32 et l'I2C utilisée`
 
 On inclue les librairie :
 
