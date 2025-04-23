@@ -207,6 +207,8 @@ while (1)
 
 ### 2. Mode Continu
 
+En cours d écriture ...
+
 ### 3. Mode Comparateur
 
 ### 4. Mode Différentiel
