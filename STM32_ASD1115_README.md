@@ -47,19 +47,8 @@ Connectez le module ADS1115 à votre STM32 comme suit :
 *   Copiez `STM32_ADS1115.c` dans le dossier `Core/Src` de votre projet STM32CubeIDE.
 *   Copiez `STM32_ADS1115.h` dans le dossier `Core/Inc` de votre projet STM32CubeIDE.
 
-### 2. Dépendances
 
-*   Cette bibliothèque nécessite la bibliothèque STM32 HAL. Assurez-vous que les modules HAL suivants sont activés dans votre `stm32l4xx_hal_conf.h` (ou équivalent) :
-    *   `HAL_MODULE_ENABLED`
-    *   `HAL_I2C_MODULE_ENABLED`
-    *   `HAL_GPIO_MODULE_ENABLED`
-    *   `HAL_RCC_MODULE_ENABLED`
-    *   `HAL_PWR_MODULE_ENABLED`
-    *   `HAL_CORTEX_MODULE_ENABLED`
-    *   (Optionnel, pour `HAL_Delay`) `HAL_TIM_MODULE_ENABLED` (généralement via SysTick)
-    *   (Optionnel, pour `printf`) `HAL_UART_MODULE_ENABLED`
-
-### 3. Configuration STM32CubeMX
+### 2. Configuration STM32CubeMX
 
 *   **I2C :** Activez le périphérique I2C que vous utilisez (ex: I2C1).
     *   Configurez-le en mode `I2C`.
@@ -71,67 +60,52 @@ Connectez le module ADS1115 à votre STM32 comme suit :
         *   Si `COMPARATOR_POLARITY` est `ADS1115_REG_CONFIG_CPOL_ACTVHI` (Active High), configurez en `No pull-up and no pull-down`.
 *   **UART (pour les exemples) :** Si vous utilisez `printf` pour le débogage (comme dans les exemples `main.c`), activez un périphérique UART (ex: USART2) en mode Asynchrone.
 
-### 4. Intégration dans `main.c`
-
-*   Incluez l'en-tête : `#include "STM32_ADS1115.h"`
-*   Redirigez `printf` vers l'UART si nécessaire (voir exemples `main.c`).
-
 ## Utilisation (API)
 
-### 1. Initialisation
+Modification du main.c :
+
+### 1. Mode Single-Ended
+
+On importe les librairie nécessaires en copiant ces lignes entre les balises `USER CODE BEGIN Includes` et `USER CODE END Includes` :
 
 ```c
-#include "STM32_ADS1115.h"
-#include <stdio.h> // Pour printf
+/* USER CODE BEGIN Includes */
+#include <stdio.h>            // Inclure la bibliothèque standard pour le printf
+#include <STM32_ADS1115.h>    // Inclure la bibliothèque STM32_ADS1115
+/* USER CODE END Includes */
+```
 
-// ... autres includes et variables globales ...
-extern I2C_HandleTypeDef hi2c1; // Handle I2C défini par CubeMX
-extern UART_HandleTypeDef huart2; // Handle UART défini par CubeMX (pour printf)
+On Définie l'adresse I2C du module ADS1115 en copiant ces lignes entre les balises `USER CODE BEGIN PD` et `USER CODE END PD` : 
 
-// Fonction pour printf (si utilisée)
+```c
+/* USER CODE BEGIN PD */
+#define ADS1115_ADDRESS 0x48 // Adresse I2C de votre module ADS1115 (pin ADD sur GND par défaut)
+/* USER CODE END PD */
+```
+
+On copie la fonction de redirection de l'UART pour le printf entre les balises `USER CODE BEGIN 0` et `USER CODE END 0` : 
+
+```c
+/* USER CODE BEGIN 0 */
+// Fonction pour rediriger printf vers UART
 int __io_putchar(int ch) {
-    HAL_UART_Transmit(&huart2, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, HAL_MAX_DELAY);
     return ch;
 }
+/* USER CODE END 0 */
+```
 
-int main(void) {
-    // ... Initialisation HAL, Clock, Périphériques (généré par CubeMX) ...
-    MX_GPIO_Init();
-    MX_I2C1_Init();
-    MX_USART2_UART_Init(); // Si printf est utilisé
+On initialise le module ADS1115 en copiant ces lignes entre les balises `USER CODE BEGIN 2` et `USER CODE END 2` :  
 
-    int module_index = -1;
-    // Choisissez l'adresse en fonction de la connexion de la broche ADDR
-    // uint8_t ads_address = 0x48; // ADDR -> GND (Défaut)
-    // uint8_t ads_address = 0x49; // ADDR -> VDD
-    // uint8_t ads_address = 0x4A; // ADDR -> SDA
-    uint8_t ads_address = 0x4B; // ADDR -> SCL (Exemple)
 
-    // Initialiser la bibliothèque avec le handle I2C
-    ADS1115_init(&hi2c1);
-    printf("Bibliothèque ADS1115 initialisée.\r\n");
 
-    // Ajouter un module ADS1115
-    module_index = ADS1115_addModule(ads_address);
-    if (module_index < 0) {
-        printf("Erreur ajout module ADS1115 @ 0x%02X\r\n", ads_address);
-        Error_Handler();
-    }
-    printf("Module ADS1115 ajouté (index %d) à l'adresse 0x%02X.\r\n", module_index, ads_address);
 
-    // Sélectionner le module pour les opérations suivantes (obligatoire)
-    if (!ADS1115_selectModule(module_index)) {
-         printf("Erreur sélection module %d.\r\n", module_index);
-         Error_Handler();
-    }
-    printf("Module %d sélectionné.\r\n", module_index);
 
-    // Vérifier la communication avec le module sélectionné
-    if (!ADS1115_begin()) {
-        printf("Erreur communication module %d.\r\n", module_index);
-        Error_Handler();
-    }
-    printf("Communication module %d OK.\r\n", module_index);
 
-    // ... Reste du code pour lire les valeurs, configurer le gain, etc. ...
-}
+
+### 2. Mode Continu
+
+### 3. Mode Comparateur
+
+### 4. Mode Différentiel
+
