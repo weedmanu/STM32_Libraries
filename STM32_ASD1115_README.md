@@ -33,7 +33,11 @@ Connectez le module ADS1115 à votre STM32 comme suit :
 *   **GND** -> Masse (GND)
 *   **SCL** -> Broche SCL de l'I2C du STM32 (ex: PB6 pour I2C1 sur L476RG, voir `stm32l4xx_hal_msp.c`)
 *   **SDA** -> Broche SDA de l'I2C du STM32 (ex: PB7 pour I2C1 sur L476RG, voir `stm32l4xx_hal_msp.c`)
-*   **ADDR** -> Connectez à GND, VCC, SDA ou SCL pour sélectionner l'adresse I2C (voir datasheet ADS1115). L'adresse par défaut est souvent 0x48 (ADDR à GND).
+*   **ADDR** -> Connectez à l'une des broches suivantes pour sélectionner l'adresse I2C (adresses 7 bits) :
+    *   **GND :** `0x48` (Adresse par défaut)
+    *   **VCC (VDD) :** `0x49`
+    *   **SDA :** `0x4A`
+    *   **SCL :** `0x4B`
 *   **ALERT/RDY** -> Connectez à une broche GPIO du STM32 configurée en entrée (ex: PA10, voir `main.c` et `MX_GPIO_Init`) **si vous utilisez le mode comparateur ou si vous voulez détecter la fin de conversion matériellement**. Une résistance de pull-up externe ou l'activation du pull-up interne du STM32 est souvent nécessaire si la polarité est Active Low.
 
 ## Configuration Logicielle
@@ -97,7 +101,11 @@ int main(void) {
     MX_USART2_UART_Init(); // Si printf est utilisé
 
     int module_index = -1;
-    uint8_t ads_address = 0x48; // Adresse 7 bits de votre module
+    // Choisissez l'adresse en fonction de la connexion de la broche ADDR
+    // uint8_t ads_address = 0x48; // ADDR -> GND (Défaut)
+    // uint8_t ads_address = 0x49; // ADDR -> VDD
+    // uint8_t ads_address = 0x4A; // ADDR -> SDA
+    uint8_t ads_address = 0x4B; // ADDR -> SCL (Exemple)
 
     // Initialiser la bibliothèque avec le handle I2C
     ADS1115_init(&hi2c1);
@@ -109,7 +117,7 @@ int main(void) {
         printf("Erreur ajout module ADS1115 @ 0x%02X\r\n", ads_address);
         Error_Handler();
     }
-    printf("Module ADS1115 ajouté (index %d).\r\n", module_index);
+    printf("Module ADS1115 ajouté (index %d) à l'adresse 0x%02X.\r\n", module_index, ads_address);
 
     // Sélectionner le module pour les opérations suivantes (obligatoire)
     if (!ADS1115_selectModule(module_index)) {
@@ -125,5 +133,5 @@ int main(void) {
     }
     printf("Communication module %d OK.\r\n", module_index);
 
-    // ... Reste du code ...
+    // ... Reste du code pour lire les valeurs, configurer le gain, etc. ...
 }
