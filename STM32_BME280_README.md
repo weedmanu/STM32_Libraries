@@ -34,6 +34,8 @@ Cette bibliothèque fournit une interface simple pour interagir avec le capteur 
 
 Voici un exemple simple d'utilisation dans votre fichier `main.c` :
 
+L'import des librairies :
+
 ```c
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
@@ -41,16 +43,19 @@ Voici un exemple simple d'utilisation dans votre fichier `main.c` :
 /* USER CODE END Includes */
 ```
 
+Les defines :
+
 ```c
 /* USER CODE BEGIN PD */
 #define SENSOR_READ_DELAY_MS 1000 // Délai entre les lectures du capteur
 /* USER CODE END PD */
 ```
 
+Les variables :
+
 ```c
 /* USER CODE BEGIN PV */
-// BME280 device handle structure
-BME280_Handle_t bme280_dev;
+BME280_Handle_t bme280_dev; // Structure pour le capteur BME280
 /* USER CODE END PV */
 ```
 
@@ -59,14 +64,52 @@ BME280_Handle_t bme280_dev;
 // Fonction qui transmet un caractère via UART et le renvoie. Utilisé pour la sortie standard (printf).
 int __io_putchar(int ch) {
     HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF); // Pour Envoyer le caractère via UART
-    return ch;
+    return ch;  // Pour renvoyer le caractère pour la sortie standard
 }
 /* USER CODE END 0 */
 ```
 
+L'initialisation avec les paramètres par défaut (mode normal, filter off, oversampling_p = 4, oversampling_t = 2, oversampling_h = 2, standby_time = 1000ms):
+
 ```c
 /* USER CODE BEGIN 2 */
 HAL_Delay(250);
+// Initialisation du BME280 via la librairie
+printf("Initialisation BME280...\r\n");
+
+int8_t init_status = BME280_Init(&bme280_dev, &hi2c1, BME280_ADDRESS_DEFAULT, NULL; // Pas de config 
+
+if (init_status != BME280_OK) {     // Vérification de l'initialisation
+  switch (init_status) {            // Gestion des erreurs
+      case BME280_ERROR_COMM:
+          printf("Erreur de communication avec le capteur BME280.\r\n");
+          break;
+      case BME280_ERROR_CHIP_ID:
+          printf("ID de puce incorrect pour le capteur BME280.\r\n");
+          break;
+      case BME280_ERROR_CONFIG:
+          printf("Erreur lors de la configuration du capteur BME280.\r\n");
+          break;
+      default:
+          printf("Erreur inconnue lors de l'initialisation du BME280.\r\n");
+          break;
+  }
+  Error_Handler();                   
+}
+printf("BME280 initialisé avec succès.\r\n");
+printf("-----------------------------------------------------\r\n\n");
+HAL_Delay(100); // Petit délai pour laisser le capteur se stabiliser
+/* USER CODE END 2 */
+```
+
+L'initialisation avec des paramètres personnalisés :
+
+```c
+/* USER CODE BEGIN 2 */
+HAL_Delay(250);
+// Initialisation du BME280 via la librairie
+printf("Initialisation BME280...\r\n");
+
 // Définir la configuration souhaitée pour le BME280
 BME280_Config_t bme_config;
 bme_config.mode = BME280_MODE_NORMAL;          // Mode Normal
@@ -76,8 +119,7 @@ bme_config.oversampling_t = BME280_OVERSAMPLING_X2; // Suréchantillonnage Temp�
 bme_config.oversampling_h = BME280_OVERSAMPLING_X2; // Suréchantillonnage Humidité x2
 bme_config.standby_time = BME280_STANDBY_1000_MS; // Temps d'attente 1000ms
 
-// Initialisation du BME280 via la librairie
-printf("Initialisation BME280...\r\n");
+
 int8_t init_status = BME280_Init(&bme280_dev, &hi2c1, BME280_ADDRESS_DEFAULT, &bme_config); // Passer la config
 if (init_status != BME280_OK) {
   switch (init_status) {
@@ -101,6 +143,7 @@ printf("-----------------------------------------------------\r\n\n");
 HAL_Delay(100); // Petit délai pour laisser le capteur se stabiliser
 /* USER CODE END 2 */
 ```
+
 
 ```c
 /* USER CODE BEGIN WHILE */
