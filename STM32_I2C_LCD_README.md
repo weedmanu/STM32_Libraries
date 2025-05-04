@@ -225,103 +225,104 @@ void display_ascii(uint8_t columns, uint8_t rows) {
 	}
 	 uint32_t mode_timer_start = HAL_GetTick();
 	/* USER CODE END 2 */
-    ```
+```
 
-    ### 6. Boucle principale
 
-    ```c
-    /* USER CODE BEGIN WHILE */
-	while (1) {
-		// Vérifier si le temps pour le mode actuel est écoulé
-    if (HAL_GetTick() - mode_timer_start >= LONG_PAUSE_MS) {
-      if (mode > 5) { mode = 0; }
-      mode_timer_start = HAL_GetTick(); // Redémarrer le timer pour le nouveau mode
+### 6. Boucle principale
 
-      // Effacer l'écran et afficher le titre du nouveau mode (déplacer le début du switch ici)
-      lcd_status = lcd_clear(); // Maintenant retourne un statut
-      if (lcd_status != HAL_OK) {
-          printf("Error clearing LCD at start of mode %d!\r\n", mode);
-          // Peut-être gérer l'erreur ici, ex: Error_Handler() ou tentative de réinitialisation
-      }
-      HAL_Delay(CLEAR_DELAY_MS); // Garder un petit délai après clear si nécessaire
-      printf("Mode %d: ...\r\n", mode); // Afficher le titre
-	  switch (mode) { // Sélectionne le mode d'affichage
-		case 0:
-			printf("Mode 0: Display ASCII\r\n");
-			display_ascii(COLUMNS, ROWS); // Affiche les caractères ASCII
-			break;
-		case 1:
-			printf("Mode 1: Display Custom Chars\r\n");
-			display_custom_chars(COLUMNS); // Affiche les caractères personnalisés
-			break;
-		case 2:
-			printf("Mode 2: Cursor Demo\r\n");
-			// Note: lcd_clear() place déjà le curseur en (0,0)
-			lcd_status = lcd_write_string("Cursor ON");
-			if(lcd_status == HAL_OK) lcd_status = lcd_cursor_on(); // Active le curseur
-			if(lcd_status != HAL_OK) printf("Error cursor on\r\n");
-			HAL_Delay(SHORT_PAUSE_MS);
-			if(lcd_status == HAL_OK) lcd_status = lcd_set_cursor(1, 0);
-			if(lcd_status == HAL_OK) lcd_status = lcd_write_string("Cursor OFF");
-			if(lcd_status == HAL_OK) lcd_status = lcd_cursor_off(); // Désactive le curseur
-			if(lcd_status != HAL_OK) printf("Error cursor off\r\n");
-			HAL_Delay(SHORT_PAUSE_MS);
-			break;
-		case 3:
-		    printf("Mode 3: Blink Demo\r\n");
-		    // Note: lcd_clear() place déjà le curseur en (0,0)
-		    lcd_status = lcd_write_string("Blink ON");
-		    if(lcd_status == HAL_OK) lcd_status = lcd_cursor_on();  // Assure que le curseur est visible
-		    if(lcd_status == HAL_OK) lcd_status = lcd_blink_on();   // Active le clignotement
-		    if(lcd_status != HAL_OK) printf("Error blink on\r\n");
-		    HAL_Delay(LONG_PAUSE_MS); // Laisse le temps de voir clignoter
-		    if(lcd_status == HAL_OK) lcd_status = lcd_set_cursor(1, 0);
-		    if(lcd_status == HAL_OK) lcd_status = lcd_write_string("Blink OFF");
-		    if(lcd_status == HAL_OK) lcd_status = lcd_blink_off();  // Désactive le clignotement
-		    if(lcd_status != HAL_OK) printf("Error blink off\r\n");
-		    HAL_Delay(SHORT_PAUSE_MS);
-		    if(lcd_status == HAL_OK) lcd_status = lcd_cursor_off(); // Optionnel: éteint le curseur à la fin
-		    break;
-		case 4:
-			printf("Mode 4: Display ON/OFF Demo\r\n");
-			// Note: lcd_clear() place déjà le curseur en (0,0)
-			lcd_status = lcd_write_string("Display OFF soon...");
-			if(lcd_status != HAL_OK) printf("Error writing display off text\r\n"); // Ajout du printf manquant
-			HAL_Delay(SHORT_PAUSE_MS);
-			if(lcd_status == HAL_OK) lcd_status = lcd_display_off(); // Éteint l'affichage
-			if(lcd_status != HAL_OK) printf("Error display off\r\n");
-			HAL_Delay(SHORT_PAUSE_MS);
-			// Note: l'écriture suivante se fera "en aveugle" car l'écran est éteint
-			if(lcd_status == HAL_OK) lcd_status = lcd_set_cursor(1, 0);
-			if(lcd_status == HAL_OK) lcd_status = lcd_write_string("Display ON again!");
-			if(lcd_status == HAL_OK) lcd_status = lcd_display_on(); // Ré-allume l'affichage
-			if(lcd_status != HAL_OK) printf("Error display on\r\n");
-			HAL_Delay(SHORT_PAUSE_MS);
-			break;
-		case 5:
-			printf("Mode 5: Native Scroll Demo\r\n");
-			// Note: lcd_clear() place déjà le curseur en (0,0)
-			lcd_status = lcd_write_string("Native Scroll Left->");
-			if(lcd_status != HAL_OK) printf("Error writing native scroll text\r\n");
-			for(int i=0; i<COLUMNS/2; i++) { // Défilement vers la gauche
-				if(lcd_status == HAL_OK) lcd_status = lcd_scroll_display_left();
-				if(lcd_status != HAL_OK) { printf("Error native scroll left\r\n"); break; }
-				HAL_Delay(SCROLL_STEP_DELAY_MS);
-			}
-			HAL_Delay(SHORT_PAUSE_MS);
-			for(int i=0; i<COLUMNS/2; i++) { // Défilement vers la droite pour revenir
-				if(lcd_status == HAL_OK) lcd_status = lcd_scroll_display_right();
-				if(lcd_status != HAL_OK) { printf("Error native scroll right\r\n"); break; }
-				HAL_Delay(SCROLL_STEP_DELAY_MS);
-			}
-			HAL_Delay(SHORT_PAUSE_MS);
-			break;
-		}
-	  mode++;
-      }
-	}
-	/* USER CODE END WHILE */
-    ```
+```c
+/* USER CODE BEGIN WHILE */
+while (1) {
+    // Vérifier si le temps pour le mode actuel est écoulé
+if (HAL_GetTick() - mode_timer_start >= LONG_PAUSE_MS) {
+    if (mode > 5) { mode = 0; }
+    mode_timer_start = HAL_GetTick(); // Redémarrer le timer pour le nouveau mode
+
+    // Effacer l'écran et afficher le titre du nouveau mode (déplacer le début du switch ici)
+    lcd_status = lcd_clear(); // Maintenant retourne un statut
+    if (lcd_status != HAL_OK) {
+        printf("Error clearing LCD at start of mode %d!\r\n", mode);
+        // Peut-être gérer l'erreur ici, ex: Error_Handler() ou tentative de réinitialisation
+    }
+    HAL_Delay(CLEAR_DELAY_MS); // Garder un petit délai après clear si nécessaire
+    printf("Mode %d: ...\r\n", mode); // Afficher le titre
+    switch (mode) { // Sélectionne le mode d'affichage
+    case 0:
+        printf("Mode 0: Display ASCII\r\n");
+        display_ascii(COLUMNS, ROWS); // Affiche les caractères ASCII
+        break;
+    case 1:
+        printf("Mode 1: Display Custom Chars\r\n");
+        display_custom_chars(COLUMNS); // Affiche les caractères personnalisés
+        break;
+    case 2:
+        printf("Mode 2: Cursor Demo\r\n");
+        // Note: lcd_clear() place déjà le curseur en (0,0)
+        lcd_status = lcd_write_string("Cursor ON");
+        if(lcd_status == HAL_OK) lcd_status = lcd_cursor_on(); // Active le curseur
+        if(lcd_status != HAL_OK) printf("Error cursor on\r\n");
+        HAL_Delay(SHORT_PAUSE_MS);
+        if(lcd_status == HAL_OK) lcd_status = lcd_set_cursor(1, 0);
+        if(lcd_status == HAL_OK) lcd_status = lcd_write_string("Cursor OFF");
+        if(lcd_status == HAL_OK) lcd_status = lcd_cursor_off(); // Désactive le curseur
+        if(lcd_status != HAL_OK) printf("Error cursor off\r\n");
+        HAL_Delay(SHORT_PAUSE_MS);
+        break;
+    case 3:
+        printf("Mode 3: Blink Demo\r\n");
+        // Note: lcd_clear() place déjà le curseur en (0,0)
+        lcd_status = lcd_write_string("Blink ON");
+        if(lcd_status == HAL_OK) lcd_status = lcd_cursor_on();  // Assure que le curseur est visible
+        if(lcd_status == HAL_OK) lcd_status = lcd_blink_on();   // Active le clignotement
+        if(lcd_status != HAL_OK) printf("Error blink on\r\n");
+        HAL_Delay(LONG_PAUSE_MS); // Laisse le temps de voir clignoter
+        if(lcd_status == HAL_OK) lcd_status = lcd_set_cursor(1, 0);
+        if(lcd_status == HAL_OK) lcd_status = lcd_write_string("Blink OFF");
+        if(lcd_status == HAL_OK) lcd_status = lcd_blink_off();  // Désactive le clignotement
+        if(lcd_status != HAL_OK) printf("Error blink off\r\n");
+        HAL_Delay(SHORT_PAUSE_MS);
+        if(lcd_status == HAL_OK) lcd_status = lcd_cursor_off(); // Optionnel: éteint le curseur à la fin
+        break;
+    case 4:
+        printf("Mode 4: Display ON/OFF Demo\r\n");
+        // Note: lcd_clear() place déjà le curseur en (0,0)
+        lcd_status = lcd_write_string("Display OFF soon...");
+        if(lcd_status != HAL_OK) printf("Error writing display off text\r\n"); // Ajout du printf manquant
+        HAL_Delay(SHORT_PAUSE_MS);
+        if(lcd_status == HAL_OK) lcd_status = lcd_display_off(); // Éteint l'affichage
+        if(lcd_status != HAL_OK) printf("Error display off\r\n");
+        HAL_Delay(SHORT_PAUSE_MS);
+        // Note: l'écriture suivante se fera "en aveugle" car l'écran est éteint
+        if(lcd_status == HAL_OK) lcd_status = lcd_set_cursor(1, 0);
+        if(lcd_status == HAL_OK) lcd_status = lcd_write_string("Display ON again!");
+        if(lcd_status == HAL_OK) lcd_status = lcd_display_on(); // Ré-allume l'affichage
+        if(lcd_status != HAL_OK) printf("Error display on\r\n");
+        HAL_Delay(SHORT_PAUSE_MS);
+        break;
+    case 5:
+        printf("Mode 5: Native Scroll Demo\r\n");
+        // Note: lcd_clear() place déjà le curseur en (0,0)
+        lcd_status = lcd_write_string("Native Scroll Left->");
+        if(lcd_status != HAL_OK) printf("Error writing native scroll text\r\n");
+        for(int i=0; i<COLUMNS/2; i++) { // Défilement vers la gauche
+            if(lcd_status == HAL_OK) lcd_status = lcd_scroll_display_left();
+            if(lcd_status != HAL_OK) { printf("Error native scroll left\r\n"); break; }
+            HAL_Delay(SCROLL_STEP_DELAY_MS);
+        }
+        HAL_Delay(SHORT_PAUSE_MS);
+        for(int i=0; i<COLUMNS/2; i++) { // Défilement vers la droite pour revenir
+            if(lcd_status == HAL_OK) lcd_status = lcd_scroll_display_right();
+            if(lcd_status != HAL_OK) { printf("Error native scroll right\r\n"); break; }
+            HAL_Delay(SCROLL_STEP_DELAY_MS);
+        }
+        HAL_Delay(SHORT_PAUSE_MS);
+        break;
+    }
+    mode++;
+    }
+}
+/* USER CODE END WHILE */
+```
 
 ## Référence API
 
@@ -371,11 +372,12 @@ void display_ascii(uint8_t columns, uint8_t rows) {
 * `HAL_StatusTypeDef lcd_scroll_display_right(void)`
     * Décale tout l'affichage d'une colonne vers la droite (commande native).
 
-## Codes d'Erreur (HAL_StatusTypeDef)
 
-HAL_OK: Opération réussie.
-HAL_ERROR: Erreur générale.
-HAL_BUSY: Le périphérique I2C est occupé.
-HAL_TIMEOUT: Timeout lors de la communication I2C.
+### Codes d'Erreur (HAL_StatusTypeDef)
+
+* **HAL_OK** : Opération réussie.
+* **HAL_ERROR** : Erreur générale.
+* **HAL_BUSY** : Le périphérique I2C est occupé.
+* **HAL_TIMEOUT** : Timeout lors de la communication I2C.
 
 
