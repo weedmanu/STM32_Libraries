@@ -20,18 +20,6 @@ Connectez le module BMP085/180 à votre microcontrôleur STM32 en utilisant le b
 
 Assurez-vous d'activer le périphérique I2C approprié dans votre configuration STM32CubeMX ou manuellement. Des résistances de pull-up (généralement 4.7kΩ ou 2.2kΩ) sont nécessaires sur les lignes SCL et SDA si elles ne sont pas déjà présentes sur le module ou la carte STM32. L'adresse I2C par défaut du BMP085/180 est `0x77` (adresse 7 bits, soit `0xEE` en écriture et `0xEF` en lecture).
 
-## Prérequis
-
-*   Un microcontrôleur STM32.
-*   Bibliothèques STM32 HAL (en particulier `stm32xxxx_hal_i2c.h`)
-*   Une configuration I2C fonctionnelle.
-
-## Installation
-
-1.  Copiez les fichiers `BMP085_180.c` et `BMP085_180.h` dans votre projet STM32 (par exemple, dans les dossiers `Src` et `Inc` respectivement).
-2.  Ajoutez le chemin vers le fichier d'en-tête (`Inc`) aux chemins d'inclusion de votre projet si nécessaire.
-3.  Incluez l'en-tête : Ajoutez `#include "BMP085_180.h"` dans les fichiers où vous souhaitez utiliser la bibliothèque (typiquement `main.c`).
-
 ## Utilisation de base
 
 Voici un exemple simple d'utilisation dans votre fichier `main.c` :
@@ -134,6 +122,62 @@ Voici un exemple simple d'utilisation dans votre fichier `main.c` :
         /* USER CODE END WHILE */
     ```
 
-## Débogage
+## Référence API
 
-Vous pouvez activer des messages de débogage via `printf` en décommentant la ligne `#define DEBUG_ON` au début du fichier `BMP085_180.h`. 
+### Structures Principales
+
+*   `BMP_Handle_t`: Structure principale contenant le handle I2C et l'adresse du capteur.
+
+### Fonctions Principales
+
+*   `BMP_Status_t BMP_Init(BMP_Handle_t *dev, BMP_Mode_t mode, I2C_HandleTypeDef *hi2c, uint8_t dev_addr)`
+    *   Initialise le capteur BMP180 en fonction du mode spécifié.
+    *   Retourne `BMP_OK` en cas de succès, ou un code d'erreur `BMP_ERROR_xxx`.
+
+*   `BMP_Status_t BMP_Init_Default(BMP_Handle_t *dev, I2C_HandleTypeDef *hi2c, uint8_t dev_addr)`
+    *   Initialise le capteur BMP180 avec le mode par défaut (BMP_STANDARD).
+    *   Retourne `BMP_OK` en cas de succès, ou un code d'erreur `BMP_ERROR_xxx`.
+
+*   `BMP_Status_t BMP_readAll(BMP_Handle_t *dev, float *temperature, int32_t *pressure)`
+    *   Lit la température et la pression depuis le capteur BMP180.
+    *   Retourne `BMP_OK` en cas de succès, ou un code d'erreur `BMP_ERROR_xxx`.
+
+*   `BMP_Status_t BMP_calculateAltitude(int32_t pressure, float sea_level_pressure, float *altitude)`
+    *   Calcule l'altitude approximative en fonction de la pression mesurée et de la pression au niveau de la mer.
+    *   Retourne `BMP_OK` en cas de succès, ou un code d'erreur `BMP_ERROR_xxx`.
+
+*   `BMP_Status_t BMP_readTemperature(BMP_Handle_t *dev, float *temperature)`
+    *   Lit uniquement la température depuis le capteur BMP180.
+    *   Retourne `BMP_OK` en cas de succès, ou un code d'erreur `BMP_ERROR_xxx`.
+
+*   `BMP_Status_t BMP_readPressure(BMP_Handle_t *dev, int32_t *pressure)`
+    *   Lit uniquement la pression depuis le capteur BMP180.
+    *   Retourne `BMP_OK` en cas de succès, ou un code d'erreur `BMP_ERROR_xxx`.
+
+
+
+### Codes d'Erreur (`BMP_Status_t`)
+
+*   `BMP_OK = 0`  
+    *   Opération réussie.
+
+*   `BMP_ERR_I2C_TX = 1`  
+    *   Erreur de transmission I2C.
+
+*   `BMP_ERR_I2C_RX = 2`  
+    *   Erreur de réception I2C.
+
+*   `BMP_ERR_INVALID_ID = 3`  
+    *   ID de puce incorrect lu.
+
+*   `BMP_ERR_CAL_READ = 4`  
+    *   Erreur lors de la lecture des données de calibration.
+
+*   `BMP_ERR_NULL_PTR = 5`  
+    *   Pointeur NULL fourni en argument.
+
+*   `BMP_ERR_INVALID_PARAM = 6`  
+    *   Paramètre invalide fourni (ex: mode, pression/altitude négative).
+
+*   `BMP_ERR_MATH = 7`  
+    *   Erreur de calcul interne (ex: division par zéro).
