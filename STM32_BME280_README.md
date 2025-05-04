@@ -208,6 +208,53 @@ Définit l'intervalle entre deux cycles de mesure en mode `NORMAL` :
 
 Ces options permettent de personnaliser le comportement du capteur en fonction des besoins spécifiques de votre application.
 
+## Modes de Fonctionnement
+
+Le capteur BME280 propose trois modes de fonctionnement principaux, qui déterminent comment les mesures sont effectuées et gérées :
+
+### 1. **Mode Sleep (`BME280_MODE_SLEEP`)**
+- **Description** : 
+  - Dans ce mode, le capteur est en veille et ne consomme qu'une quantité minimale d'énergie.
+  - Aucune mesure n'est effectuée.
+- **Utilisation typique** : 
+  - Ce mode est utilisé pour économiser de l'énergie lorsque le capteur n'est pas nécessaire.
+  - Vous pouvez passer temporairement en mode Sleep entre deux mesures pour réduire la consommation énergétique.
+
+---
+
+### 2. **Mode Forced (`BME280_MODE_FORCED`)**
+- **Description** : 
+  - Dans ce mode, le capteur effectue une seule mesure (température, pression et/ou humidité selon la configuration) puis retourne automatiquement en mode Sleep.
+  - Ce mode est utile pour des mesures ponctuelles ou lorsque vous souhaitez contrôler manuellement le moment des mesures.
+- **Utilisation typique** : 
+  - Idéal pour des applications à faible consommation d'énergie où les mesures ne sont pas nécessaires en continu.
+  - Exemple : Lire les données toutes les 10 minutes en activant le capteur uniquement pour une mesure.
+
+---
+
+### 3. **Mode Normal (`BME280_MODE_NORMAL`)**
+- **Description** : 
+  - Dans ce mode, le capteur effectue des mesures périodiques en continu selon les paramètres de configuration (suréchantillonnage, temps d'attente, etc.).
+  - Les données sont mises à jour automatiquement à intervalles réguliers.
+- **Utilisation typique** : 
+  - Convient pour des applications où des mesures fréquentes et continues sont nécessaires.
+  - Exemple : Surveillance en temps réel des conditions environnementales.
+
+---
+
+### Comparaison des Modes
+
+| Mode         | Consommation d'énergie | Fréquence des mesures | Utilisation typique                     |
+|--------------|-------------------------|-----------------------|-----------------------------------------|
+| **Sleep**    | Très faible             | Aucune                | Économie d'énergie entre deux mesures. |
+| **Forced**   | Faible                  | Ponctuelle            | Mesures ponctuelles à intervalles définis. |
+| **Normal**   | Moyenne à élevée        | Continue              | Surveillance en temps réel.            |
+
+---
+
+
+Ces modes permettent d'adapter le comportement du capteur en fonction des besoins spécifiques de votre application, qu'il s'agisse d'économiser de l'énergie ou de surveiller en continu les conditions environnementales.
+
 ## Débogage
 
 Vous pouvez activer des messages de débogage via `printf` en décommentant la ligne `#define DEBUG_ON` au début du fichier `STM32_BME280.c`. Assurez-vous que `printf` est correctement redirigé (par exemple, vers une liaison série UART, comme montré dans l'exemple `__io_putchar`).
