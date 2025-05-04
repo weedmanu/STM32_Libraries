@@ -35,76 +35,92 @@ Cette bibliothèque fournit une interface simple pour interagir avec le capteur 
 Voici un exemple simple d'utilisation dans votre fichier `main.c` :
 
 ```c
-#include "main.h"
-#include "STM32_BME280.h"
-#include <stdio.h> // Pour printf
+/* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include "STM32_BME280.h" // Include the new library header
+/* USER CODE END Includes */
+```
 
-// Déclarer le handle I2C (généralement défini par CubeMX)
-extern I2C_HandleTypeDef hi2c1; // Assurez-vous que c'est le bon handle I2C
+```c
+/* USER CODE BEGIN PD */
+#define SENSOR_READ_DELAY_MS 1000 // Délai entre les lectures du capteur
+/* USER CODE END PD */
+```
 
-// Déclarer le handle pour le BME280
+```c
+/* USER CODE BEGIN PV */
+// BME280 device handle structure
 BME280_Handle_t bme280_dev;
+/* USER CODE END PV */
+```
 
-// Fonction pour rediriger printf vers UART (si nécessaire pour le débogage)
+```c
+/* USER CODE BEGIN 0 */
+// Fonction qui transmet un caractère via UART et le renvoie.Utilisé pour la sortie standard (printf).
 int __io_putchar(int ch) {
-    // Remplacez huart2 par votre handle UART si vous en utilisez un autre
-    extern UART_HandleTypeDef huart2;
-    HAL_UART_Transmit(&huart2, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF); // Pour Envoyer le caractère via UART
+    // ITM_SendChar(ch);                 // Option alternative pour envoyer le caractère via ITM
     return ch;
 }
+/* USER CODE END 0 */
+```
 
-int main(void) {
-    // Initialisation HAL, SystemClock_Config, MX_GPIO_Init, MX_I2C1_Init, MX_USART2_UART_Init...
-    HAL_Init();
-    SystemClock_Config();
-    MX_GPIO_Init();
-    MX_USART2_UART_Init(); // Initialisation de l'UART pour printf
-    MX_I2C1_Init();      // Initialisation de l'I2C
+```c
+/* USER CODE BEGIN 2 */
+HAL_Delay(250);
+// Définir la configuration souhaitée pour le BME280
+BME280_Config_t bme_config;
+bme_config.mode = BME280_MODE_NORMAL;          // Mode Normal
+bme_config.filter = BME280_FILTER_OFF;         // Pas de filtre IIR
+bme_config.oversampling_p = BME280_OVERSAMPLING_X4; // Suréchantillonnage Pression x4
+bme_config.oversampling_t = BME280_OVERSAMPLING_X2; // Suréchantillonnage Température x2
+bme_config.oversampling_h = BME280_OVERSAMPLING_X2; // Suréchantillonnage Humidité x2
+bme_config.standby_time = BME280_STANDBY_1000_MS; // Temps d'attente 1000ms
 
-    HAL_Delay(100); // Petit délai
-
-    printf("Initialisation BME280...\r\n");
-
-    // Optionnel : Définir une configuration personnalisée
-    BME280_Config_t bme_config;
-    bme_config.mode = BME280_MODE_NORMAL;
-    bme_config.filter = BME280_FILTER_OFF;
-    bme_config.oversampling_p = BME280_OVERSAMPLING_X4;
-    bme_config.oversampling_t = BME280_OVERSAMPLING_X2;
-    bme_config.oversampling_h = BME280_OVERSAMPLING_X2;
-    bme_config.standby_time = BME280_STANDBY_1000_MS;
-
-    // Initialiser le capteur BME280 avec la configuration personnalisée
-    // Si vous passez NULL pour le dernier argument, la configuration par défaut sera utilisée.
-    int8_t init_status = BME280_Init(&bme280_dev, &hi2c1, BME280_ADDRESS_DEFAULT, &bme_config);
-
-    // Vérifier le statut de l'initialisation
-    if (init_status != BME280_OK) {
-        printf("Erreur initialisation BME280: %d\r\n", init_status);
-        // Gérer l'erreur (boucle infinie, redémarrage...)
-        Error_Handler();
-    } else {
-        printf("BME280 initialisé avec succès.\r\n");
-    }
-
-    while (1) {
-        float temperature, pressure, humidity;
-
-        // Lire toutes les données du capteur
-        int8_t read_status = BME280_ReadAll(&bme280_dev, &temperature, &pressure, &humidity);
-
-        if (read_status == BME280_OK) {
-            printf("Temperature: %.2f C\r\n", temperature);
-            printf("Pressure: %.2f hPa\r\n", pressure / 100.0f); // Conversion Pa -> hPa
-            printf("Humidity: %.2f %%\r\n", humidity);
-        } else {
-            printf("Erreur lecture BME280: %d\r\n", read_status);
-        }
-
-        printf("--------------------\r\n");
-        HAL_Delay(2000); // Attendre 2 secondes
-    }
+// Initialisation du BME280 via la librairie
+printf("Initialisation BME280...\r\n");
+int8_t init_status = BME280_Init(&bme280_dev, &hi2c1, BME280_ADDRESS_DEFAULT, &bme_config); // Passer la config
+if (init_status != BME280_OK) {
+  switch (init_status) {
+	  case BME280_ERROR_COMM:
+		  printf("Erreur de communication avec le capteur BME280.\r\n");
+		  break;
+	  case BME280_ERROR_CHIP_ID:
+		  printf("ID de puce incorrect pour le capteur BME280.\r\n");
+		  break;
+	  case BME280_ERROR_CONFIG:
+		  printf("Erreur lors de la configuration du capteur BME280.\r\n");
+		  break;
+	  default:
+		  printf("Erreur inconnue lors de l'initialisation du BME280.\r\n");
+		  break;
+  }
+  Error_Handler();
 }
+printf("BME280 initialisé avec succès.\r\n");
+printf("-----------------------------------------------------\r\n\n");
+HAL_Delay(100); // Petit délai pour laisser le capteur se stabiliser
+/* USER CODE END 2 */
+```
+
+```c
+/* USER CODE BEGIN WHILE */
+  while (1)
+  {
+      float temperature = 0.0f, pressure = 0.0f, humidity = 0.0f;
+      int8_t read_status = BME280_ReadAll(&bme280_dev, &temperature, &pressure, &humidity);
+
+      if (read_status == BME280_OK) {
+          printf("Température : %.2f °C\r\n", temperature);
+          printf("Pression : %.2f hPa\r\n", pressure / 100.0);
+          printf("Humidité : %.2f %%\r\n", humidity);
+      } else {
+          printf("Erreur lors de la lecture des données du BME280 (code : %d).\r\n", read_status);
+      }
+      printf("-----------------------------------------------------\r\n\n");
+      HAL_Delay(SENSOR_READ_DELAY_MS);
+    /* USER CODE END WHILE */
+    
 ```
 
 ## Référence API
