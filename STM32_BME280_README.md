@@ -77,7 +77,7 @@ HAL_Delay(250);
 // Initialisation du BME280 via la librairie
 printf("Initialisation BME280...\r\n");
 
-int8_t init_status = BME280_Init(&bme280_dev, &hi2c1, BME280_ADDRESS_DEFAULT, NULL; // Pas de config 
+int8_t init_status = BME280_Init(&bme280_dev, &hi2c1, BME280_ADDRESS_DEFAULT, NULL); // Pas de config 
 
 if (init_status != BME280_OK) {     // Vérification de l'initialisation
   switch (init_status) {            // Gestion des erreurs
