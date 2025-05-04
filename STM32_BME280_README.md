@@ -115,37 +115,6 @@ HAL_Delay(100); // Petit délai pour laisser le capteur se stabiliser
 /* USER CODE END 2 */
 ```
 
-```c
-/* USER CODE BEGIN 2 */
-HAL_Delay(250);
-// Initialisation du BME280 via la librairie
-printf("Initialisation BME280...\r\n");
-
-int8_t init_status = BME280_Init(&bme280_dev, &hi2c1, BME280_ADDRESS_DEFAULT, NULL); // Pas de config 
-
-if (init_status != BME280_OK) {     // Vérification de l'initialisation
-  switch (init_status) {            // Gestion des erreurs
-      case BME280_ERROR_COMM:
-          printf("Erreur de communication avec le capteur BME280.\r\n");
-          break;
-      case BME280_ERROR_CHIP_ID:
-          printf("ID de puce incorrect pour le capteur BME280.\r\n");
-          break;
-      case BME280_ERROR_CONFIG:
-          printf("Erreur lors de la configuration du capteur BME280.\r\n");
-          break;
-      default:
-          printf("Erreur inconnue lors de l'initialisation du BME280.\r\n");
-          break;
-  }
-  Error_Handler();                   
-}
-printf("BME280 initialisé avec succès.\r\n");
-printf("-----------------------------------------------------\r\n\n");
-HAL_Delay(100); // Petit délai pour laisser le capteur se stabiliser
-/* USER CODE END 2 */
-```
-
 5.2 **Initialisation avec une configuration personnalisée**
 
 Vous pouvez également initialiser le capteur avec une configuration personnalisée
