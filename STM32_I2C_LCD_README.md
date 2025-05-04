@@ -327,6 +327,55 @@ void display_ascii(uint8_t columns, uint8_t rows) {
 
 ### Structures Principales
 
+* `LCD_Config`: Structure interne contenant la configuration de l'écran LCD (adresse I2C, colonnes, lignes).
 
+### Fonctions Principales
+
+* `HAL_StatusTypeDef lcd_init(I2C_HandleTypeDef *hi2c, uint8_t columns, uint8_t rows, uint8_t i2c_address)`
+    * Initialise l'écran LCD avec les paramètres spécifiés.
+    * Retourne `HAL_OK` en cas de succès, ou un code d'erreur HAL.
+
+* `HAL_StatusTypeDef lcd_write_string(char *str)`
+    * Écrit une chaîne de caractères sur l'écran LCD à partir de la position actuelle du curseur.
+
+* `HAL_StatusTypeDef lcd_write_char(char ascii_char)`
+    * Écrit un caractère ASCII sur l'écran LCD à la position actuelle du curseur.
+
+* `HAL_StatusTypeDef lcd_set_cursor(uint8_t row, uint8_t column)`
+    * Positionne le curseur sur l'écran LCD.
+
+* `HAL_StatusTypeDef lcd_clear(void)`
+    * Efface l'affichage du LCD et replace le curseur en (0,0).
+
+* `HAL_StatusTypeDef lcd_home(void)`
+    * Replace le curseur en position (0,0) sans effacer l'écran.
+
+* `void lcd_backlight(uint8_t state)`
+    * Contrôle l'état du rétroéclairage (1 pour allumé, 0 pour éteint).
+
+* `HAL_StatusTypeDef lcd_create_char(uint8_t location, uint8_t charmap[8])`
+    * Crée un caractère personnalisé dans la CGRAM.
+
+* `HAL_StatusTypeDef lcd_put_custom_char(uint8_t location)`
+    * Affiche un caractère personnalisé préalablement créé.
+
+* `HAL_StatusTypeDef scroll_text_left(char *text, uint8_t row, uint8_t columns, uint16_t delay_ms)`
+    * Fait défiler un texte vers la gauche sur une ligne spécifiée.
+
+* `HAL_StatusTypeDef scroll_text_right(char *text, uint8_t row, uint8_t columns, uint16_t delay_ms)`
+    * Fait défiler un texte vers la droite sur une ligne spécifiée.
+
+* `HAL_StatusTypeDef lcd_scroll_display_left(void)`
+    * Décale tout l'affichage d'une colonne vers la gauche (commande native).
+
+* `HAL_StatusTypeDef lcd_scroll_display_right(void)`
+    * Décale tout l'affichage d'une colonne vers la droite (commande native).
+
+## Codes d'Erreur (HAL_StatusTypeDef)
+
+HAL_OK: Opération réussie.
+HAL_ERROR: Erreur générale.
+HAL_BUSY: Le périphérique I2C est occupé.
+HAL_TIMEOUT: Timeout lors de la communication I2C.
 
 
