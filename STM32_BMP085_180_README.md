@@ -34,9 +34,10 @@ Assurez-vous d'activer le périphérique I2C approprié dans votre configuration
 
 ## Utilisation de base
 
-Voici un exemple simple d'utilisation dans votre fichier `main.c`, basé sur le code fourni :
+Voici un exemple simple d'utilisation dans votre fichier `main.c` :
 
 1.  **Inclure l'en-tête :**
+
     ```c
     /* USER CODE BEGIN Includes */
     #include <stdio.h>      // Pour printf
@@ -44,63 +45,95 @@ Voici un exemple simple d'utilisation dans votre fichier `main.c`, basé sur le 
     /* USER CODE END Includes */
     ```
 
-2.  **Déclarer des variables globales (si nécessaire) :**
-    *(Note: L'exemple fourni utilise des variables locales dans la boucle `while`, ce qui est aussi une bonne pratique)*
+2.  **Déclarer les constantes préprocesseur :**
+
+    ```c 
+    /* USER CODE BEGIN PD */
+    #define STD_ATM_PRESS 101325 // Pression atmosphérique standard au niveau de la mer en Pascal (gardé ici car spécifique à l'application)
+    #define BMP_I2C_ADRESS  0x77 // Adresse I2C du BMP180 (7 bits)
+    /* USER CODE END PD */
+    ```
+
+
+3.  **Déclarer des variables globales :**
+
     ```c
     /* USER CODE BEGIN PV */
-    // Aucune variable globale spécifique au capteur nécessaire dans cet exemple
+    BMP_Handle_t bmp_sensor;    // Structure pour contenir les données du capteur BMP
+    float temperature;          // Température lue par le capteur BMP
+    int32_t pressure_pa;        // Pression lue par le capteur BMP (en Pascal)
+    float altitude;             // Altitude calculée à partir de la pression lue (en mètres)
     /* USER CODE END PV */
     ```
 
-3.  **(Optionnel) Redirection `printf` pour l'affichage (si vous utilisez `printf`) :**
+3.  **Redirection `printf` pour l'affichage :**
     ```c
     /* USER CODE BEGIN 0 */
-    // Fonction pour rediriger printf vers UART (ex: UART2)
-    int __io_putchar(int ch) { HAL_UART_Transmit(&huart2, (uint8_t*)&ch, 1, HAL_MAX_DELAY); return ch; }
+    // Fonction qui transmet un caractère via UART et le renvoie.Utilisé pour la sortie standard (printf).
+    int __io_putchar(int ch) {
+        HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF); // Pour Envoyer le caractère via UART
+        // ITM_SendChar(ch);                 // Option alternative pour envoyer le caractère via ITM
+        return ch;
+    }
     /* USER CODE END 0 */
     ```
 
-4.  **Initialiser le capteur** (après l'initialisation de l'I2C par HAL, par exemple dans `main()` après `MX_I2C1_Init()`):
+4.  **Initialiser le capteur :**
+
     ```c
     /* USER CODE BEGIN 2 */
-    // Assurez-vous que votre handle I2C (ex: hi2c1) est correctement initialisé
-    BMP_Init(&hi2c1);
-    printf("BMP085/180 Initialisé.\r\n");
-    HAL_Delay(100); // Petit délai
-    /* USER CODE END 2 */
+  HAL_Delay(500);
+    printf("--- Initialisation des capteurs ---\r\n");
+
+    // Initialisation du capteur BMP180
+    printf("Initialisation BMP180 (Adresse 0x%X)...\r\n", BMP_I2C_ADRESS);
+    // --- CHOIX DE L'INITIALISATION ---
+    // Option 1: Spécifier le mode explicitement (ex: BMP_ULTRAHIGHRES, BMP_HIGHRES, BMP_STANDARD, BMP_ULTRALOWPOWER)
+    BMP_Status_t bmp_status = BMP_Init(&bmp_sensor, BMP_ULTRAHIGHRES, &hi2c1, BMP_I2C_ADRESS);
+    // Option 2: Utiliser le mode par défaut (défini comme BMP_STANDARD dans le .h)
+    //BMP_Status_t bmp_status = BMP_Init_Default(&bmp_sensor, &hi2c1, BMP_I2C_ADRESS);
+    if (bmp_status == BMP_OK) {
+        printf("BMP180 initialisé avec succès.\r\n");
+    } else {
+        printf("ERREUR: Initialisation BMP180 échouée ! Code: %d\r\n", bmp_status);
+        // Vous pouvez choisir de continuer ou d'arrêter ici avec Error_Handler()
+        // Error_Handler();
+    }
+  /* USER CODE END 2 */
     ```
-    *(Note: La fonction `BMP_Init` dans certaines implémentations peut retourner un statut. Vérifiez l'en-tête `.h` pour voir si une gestion d'erreur est possible à l'initialisation).*
+
 
 5.  **Lire les données dans la boucle principale :**
     ```c
-    /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1)
     {
-        // Déclaration des variables locales pour stocker les lectures
-        float temperature, pressure, altitude;
+        printf("\r\n--- Lecture BMP085/180 ---\r\n");
+        bmp_status = BMP_readAll(&bmp_sensor, &temperature, &pressure_pa); // Lecture optimisée
 
-        temperature = BMP_GetTemperature(); // Lire la température en °C
-        pressure = BMP_GetPressure();       // Lire la pression en Pascals (Pa)
-        altitude = BMP_GetAltitude();       // Calculer l'altitude en mètres (m)
+        if (bmp_status == BMP_OK) {
+            printf("BMP Température : %.2f °C\r\n", temperature);
+            printf("BMP Pression    : %ld Pa\r\n", pressure_pa);
 
-        // Afficher les valeurs (nécessite une configuration printf, par exemple via UART)
-        printf("Temperature: %.2f C\r\n", temperature);
-        printf("Pressure: %.2f Pa\r\n", pressure);
-        printf("Altitude: %.2f m\r\n\n", altitude);
+            // Calcul de l'altitude à partir de la pression lue
+            BMP_Status_t alt_status = BMP_calculateAltitude(pressure_pa, (float)STD_ATM_PRESS, &altitude);
+            if (alt_status == BMP_OK) {
+                // Vérifie si le calcul a réussi (pas besoin de isnan si la fonction retourne OK)
+                    printf("BMP Altitude    : %.2f m (estimée vs %d Pa)\r\n", altitude, STD_ATM_PRESS);
+            } else {
+                // L'erreur est maintenant gérée par le code de retour de BMP_calculateAltitude
+                // On pourrait afficher un message plus spécifique basé sur alt_status si nécessaire
+                // Par exemple, si alt_status == BMP_ERR_INVALID_PARAM
+                printf("BMP Erreur calcul altitude (pression invalide: %ld Pa)\r\n", pressure_pa);
+            }
+        } else {
+            printf("BMP Erreur lecture Temp/Press. Code: %d\r\n", bmp_status);
+        }
 
-        HAL_Delay(1000); // Attendre 1 seconde
-    /* USER CODE END WHILE */
-    }
+        HAL_Delay(2000); // Attente de 2 secondes avant la prochaine lecture
+        /* USER CODE END WHILE */
     ```
 
-## API (Fonctions principales)
+## Débogage
 
-*   `void BMP_Init(I2C_HandleTypeDef *hi2c)`: Initialise le capteur en utilisant le handle I2C fourni et lit les coefficients de calibration internes. Doit être appelée une fois avant toute lecture. *(Vérifiez le type de retour dans votre fichier .h, il pourrait être `int` ou `HAL_StatusTypeDef` pour indiquer le succès/échec).*
-*   `float BMP_GetTemperature(void)`: Déclenche une mesure de température, attend la conversion et retourne la température compensée en degrés Celsius.
-*   `float BMP_GetPressure(void)`: Déclenche une mesure de pression (avec un certain niveau d'oversampling, souvent défini en interne dans la bibliothèque), attend la conversion et retourne la pression compensée en Pascals.
-*   `float BMP_GetAltitude(void)`: Calcule et retourne l'altitude approximative en mètres, basée sur la dernière lecture de pression et une pression de référence au niveau de la mer (par défaut 101325 Pa). Cette fonction appelle généralement `BMP_GetPressure()` en interne si aucune lecture récente n'est disponible.
-
-## Licence
-
-Ce code est généralement fourni sous une licence permissive comme MIT ou BSD. Veuillez vérifier les fichiers sources (`BMP085_180.c` et `BMP085_180.h`) pour les détails spécifiques de la licence.
+Vous pouvez activer des messages de débogage via `printf` en décommentant la ligne `#define DEBUG_ON` au début du fichier `BMP085_180.h`. 
