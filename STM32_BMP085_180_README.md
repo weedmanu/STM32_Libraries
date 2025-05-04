@@ -155,6 +155,16 @@ Voici un exemple simple d'utilisation dans votre fichier `main.c` :
     *   Retourne `BMP_OK` en cas de succès, ou un code d'erreur `BMP_ERROR_xxx`.
 
 
+### Mode de fonctionnement (`mode`)
+
+    Détermine comment le capteur effectue les mesures, en influençant la précision et le temps de conversion :
+
+    - `BMP_ULTRALOWPOWER` : Mode basse consommation, temps de conversion rapide, précision minimale.
+    - `BMP_STANDARD` : Mode standard, équilibre entre consommation, temps de conversion et précision.
+    - `BMP_HIGHRES` : Mode haute résolution, temps de conversion plus long, meilleure précision.
+    - `BMP_ULTRAHIGHRES` : Mode ultra haute résolution, temps de conversion maximal, précision optimale.
+
+    Le mode est spécifié lors de l'initialisation du capteur avec la fonction `BMP_Init`. Par défaut, le mode est défini comme `BMP_STANDARD` si vous utilisez `BMP_Init_Default`.
 
 ### Codes d'Erreur (`BMP_Status_t`)
 
@@ -181,3 +191,7 @@ Voici un exemple simple d'utilisation dans votre fichier `main.c` :
 
 *   `BMP_ERR_MATH = 7`  
     *   Erreur de calcul interne (ex: division par zéro).
+
+
+
+
