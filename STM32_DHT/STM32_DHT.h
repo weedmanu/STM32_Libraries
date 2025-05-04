@@ -4,93 +4,82 @@
  *
  * Ce fichier contient les définitions et les prototypes de fonctions pour
  * interagir avec les capteurs DHT (DHT11, DHT22, DHT21) en utilisant la
- * bibliothèque STM32 HAL.
+ * bibliothèque STM32 HAL. Il définit les types de capteurs, les codes de
+ * retour, la structure de données du capteur et les fonctions publiques
+ * pour initialiser et lire les données du capteur.
  *
  * @author weedm
- * @date 2 avril 2025
+ * @date 4 avril 2025 // Mise à jour de la date si nécessaire
  */
 
-#ifndef INC_STM32_DHT_H_
-#define INC_STM32_DHT_H_
+ #ifndef INC_STM32_DHT_H_
+ #define INC_STM32_DHT_H_
+ 
+ #include "stm32l4xx_hal.h"  // Inclure le fichier HAL correspondant à votre carte
 
-#include "config.h"  // Inclure le fichier de configuration
-
-
-/**
- * @defgroup DHT_Types Types de capteurs DHT
- * @brief Définitions des différents types de capteurs DHT
- * @{
- */
-#define DHT11 1  ///< Type de capteur DHT11
-#define DHT22 2  ///< Type de capteur DHT22
-#define DHT21 3  ///< Type de capteur DHT21
-/** @} */
-
-// Codes de retour pour les fonctions
-#define DHT_OK 0          ///< Opération réussie
-#define DHT_ERROR 1       ///< Erreur générale
-#define DHT_CHECKSUM_ERR 2 ///< Erreur de somme de contrôle
-#define DHT_NO_RESPONSE 3 ///< Pas de réponse du capteur
-
-/**
- * @struct DHT_Sensor
- * @brief Structure représentant un capteur DHT
- *
- * Cette structure contient la configuration et l'état d'un capteur DHT.
- */
-typedef struct {
-    GPIO_TypeDef* DHT_PORT; ///< Port GPIO auquel le capteur est connecté
-    uint16_t DHT_PIN;       ///< Broche GPIO à laquelle le capteur est connecté
-    uint8_t sensorType;     ///< Type du capteur (DHT11, DHT22, DHT21)
-    uint8_t hum1, hum2;     ///< Octets de données d'humidité
-    uint8_t temp1, temp2;   ///< Octets de données de température
-    uint8_t SUM, CHECK;     ///< Octets de somme de contrôle pour l'intégrité des données
-} DHT_Sensor;
-
-/**
- * @brief Initialise le capteur DHT
- *
- * @param sensor Pointeur vers la structure DHT_Sensor à initialiser
- * @param port Port GPIO auquel le capteur est connecté
- * @param pin Broche GPIO à laquelle le capteur est connecté
- * @param type Type du capteur (DHT11, DHT22, DHT21)
- * @return uint8_t Code de retour (DHT_OK, DHT_ERROR, etc.)
- */
-uint8_t DHT_Init(DHT_Sensor* sensor, GPIO_TypeDef* port, uint16_t pin, uint8_t type);
-
-/**
- * @brief Génère un délai en microsecondes à l'aide d'un timer
- *
- * @param htim Pointeur vers une structure TIM_HandleTypeDef contenant les informations de configuration pour le module TIM.
- * @param delay Durée du délai en microsecondes
- */
-void microDelay(TIM_HandleTypeDef *htim, uint16_t delay);
-
-/**
- * @brief Démarre la communication avec le capteur DHT
- *
- * @param htim Pointeur vers une structure TIM_HandleTypeDef contenant les informations de configuration pour le module TIM.
- * @param sensor Pointeur vers la structure DHT_Sensor
- * @return uint8_t 1 si le capteur a répondu, 0 sinon
- */
-uint8_t DHT_Start(TIM_HandleTypeDef *htim, DHT_Sensor* sensor);
-
-/**
- * @brief Lit un octet de données depuis le capteur DHT
- *
- * @param htim Pointeur vers une structure TIM_HandleTypeDef contenant les informations de configuration pour le module TIM.
- * @param sensor Pointeur vers la structure DHT_Sensor
- * @return uint8_t L'octet lu depuis le capteur
- */
-uint8_t DHT_Read(TIM_HandleTypeDef *htim, DHT_Sensor* sensor);
-
-/**
- * @brief Récupère les données de température et d'humidité du capteur DHT
- *
- * @param sensor Pointeur vers la structure DHT_Sensor
- * @param data Tableau pour stocker les données de température et d'humidité
- * @return uint8_t Code de retour (DHT_OK, DHT_ERROR, etc.)
- */
-uint8_t DHT_GetData(DHT_Sensor* sensor, float data[2]);
-
-#endif /* INC_STM32_DHT_H_ */
+ /**
+  * @defgroup DHT_Types Types de capteurs DHT
+  * @brief Définitions des différents types de capteurs DHT supportés.
+  * @{
+  */
+ #define DHT11 1  ///< Identifiant pour le capteur DHT11
+ #define DHT22 2  ///< Identifiant pour le capteur DHT22
+ #define DHT21 3  ///< Identifiant pour le capteur DHT21 (équivalent au DHT22)
+ /** @} */
+ 
+ /**
+  * @struct DHT_Sensor
+  * @brief Structure représentant un capteur DHT et ses données.
+  *
+  * Cette structure contient les informations de configuration (port, broche, type)
+  * le handle du timer à utiliser pour les délais et la lecture,
+  * et les dernières données brutes lues depuis le capteur, y compris la somme de contrôle.
+  */
+ typedef struct {
+     GPIO_TypeDef* DHT_PORT; ///< Pointeur vers le port GPIO auquel le capteur est connecté.
+     uint16_t DHT_PIN;       ///< Numéro de la broche GPIO à laquelle le capteur est connecté.
+     uint8_t sensorType;     ///< Type du capteur (utiliser les définitions DHT11, DHT22, DHT21).
+     // Données brutes lues depuis le capteur
+     TIM_HandleTypeDef* htim; ///< Pointeur vers le handle du timer utilisé pour les délais/mesures.
+     uint8_t hum1;           ///< Octet de poids fort de l'humidité (ou partie entière pour DHT11).
+     uint8_t hum2;           ///< Octet de poids faible de l'humidité (ou partie décimale pour DHT11).
+     uint8_t temp1;          ///< Octet de poids fort de la température (ou partie entière pour DHT11).
+     uint8_t temp2;          ///< Octet de poids faible de la température (ou partie décimale pour DHT11).
+     uint8_t SUM;            ///< Somme de contrôle reçue du capteur.
+     uint8_t CHECK;          ///< Somme de contrôle calculée localement.
+ } DHT_Sensor;
+ 
+ /**
+  * @brief Initialise une instance de capteur DHT.
+  *
+  * Configure la structure DHT_Sensor avec le port, la broche et le type spécifiés.
+  * Stocke également le handle du timer à utiliser. Le timer doit être démarré
+  * (via HAL_TIM_Base_Start) *avant* d'appeler cette fonction.
+  *
+  * @param sensor Pointeur vers la structure DHT_Sensor à initialiser.
+  * @param htim Pointeur vers la structure TIM_HandleTypeDef du timer à utiliser (doit être configuré pour compter en microsecondes).
+  * @param port Pointeur vers le port GPIO (ex: GPIOA, GPIOB, ...).
+  * @param pin Numéro de la broche GPIO (ex: GPIO_PIN_0, GPIO_PIN_1, ...).
+  * @param type Type du capteur (DHT11, DHT22, ou DHT21).
+  * @return HAL_StatusTypeDef Statut de l'opération (HAL_OK en cas de succès, HAL_ERROR sinon).
+  */
+ HAL_StatusTypeDef DHT_Init(DHT_Sensor* sensor, TIM_HandleTypeDef* htim, GPIO_TypeDef* port, uint16_t pin, uint8_t type);
+ 
+ /**
+  * @brief Récupère et traite les données de température et d'humidité.
+  *
+  * Lance la communication avec le capteur, lit les 5 octets de données (humidité,
+  * température, somme de contrôle), vérifie la somme de contrôle, et convertit
+  * les données brutes en valeurs flottantes (degrés Celsius et pourcentage).
+  *
+  * @param sensor Pointeur vers la structure DHT_Sensor configurée. Les données brutes
+  *               seront stockées dans cette structure.
+  * @param data Tableau de 2 flottants où stocker les résultats :
+  *             data[0] contiendra la température en °C.
+  *             data[1] contiendra l'humidité relative en %.
+  * @return HAL_StatusTypeDef Statut de l'opération (HAL_OK, HAL_ERROR pour non-réponse/checksum, HAL_TIMEOUT pour timeout lecture).
+  */
+ HAL_StatusTypeDef DHT_GetData(DHT_Sensor* sensor, float data[2]);
+ 
+ #endif /* INC_STM32_DHT_H_ */
+ 
