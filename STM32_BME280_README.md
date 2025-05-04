@@ -134,7 +134,6 @@ bme_config.oversampling_t = BME280_OVERSAMPLING_X2; // Suréchantillonnage Temp�
 bme_config.oversampling_h = BME280_OVERSAMPLING_X2; // Suréchantillonnage Humidité x2
 bme_config.standby_time = BME280_STANDBY_1000_MS; // Temps d'attente 1000ms
 
-
 int8_t init_status = BME280_Init(&bme280_dev, &hi2c1, BME280_ADDRESS_DEFAULT, &bme_config); // Passer la config
 if (init_status != BME280_OK) {
   switch (init_status) {
