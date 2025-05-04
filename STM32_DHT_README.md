@@ -20,6 +20,9 @@ Connectez le capteur DHT à votre microcontrôleur STM32 comme suit :
 
 Assurez-vous d'activer le timer approprié dans votre configuration STM32CubeMX ou manuellement. Le timer doit être configuré pour compter en microsecondes.
 
+`Precaler` -> `Horloge en MHZ - 1` ex 80MHz -> 79
+`Counter Period` -> `0xFFFF - 1`
+
 ## Utilisation de base
 
 Voici un exemple simple d'utilisation dans votre fichier `main.c` :
