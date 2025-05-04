@@ -73,7 +73,7 @@ int __io_putchar(int ch) {
 
 5.  **Initialiser le capteur :**
 
-### 5.1 Initialisation avec les paramètres par défaut
+5.1  **Initialisation avec les paramètres par défaut:**
 
 L'initialisation avec les paramètres par défaut configure le capteur en mode normal avec les réglages suivants :
 - Filtre : désactivé (`filter = BME280_FILTER_OFF`)
