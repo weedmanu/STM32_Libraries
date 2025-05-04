@@ -1,51 +1,158 @@
-/*
- * STM32_DHT20_I2C.h
+/**
+ * @file    STM32_I2C_LCD.h
+ * @brief   Fichier d'en-tête pour la librairie de contrôle d'écrans LCD
+ *          alphanumériques via I2C (avec expandeur PCF8574) sur STM32.
+ * @author  manu
+ * @version 1.1
+ * @date    2023-10-05
  *
- *  Created on: May 3, 2025
- *      Author: weedm
+ * @note    Cette librairie utilise les fonctions HAL de STMicroelectronics.
+ *          Elle est conçue pour fonctionner avec des écrans LCD compatibles HD44780
+ *          connectés via un module I2C basé sur le PCF8574.
  */
 
-#ifndef INC_STM32_DHT20_I2C_H_
-#define INC_STM32_DHT20_I2C_H_
+#ifndef STM32_I2C_LCD_H
+#define STM32_I2C_LCD_H
 
-#include "main.h" // Change stm32l4xx_hal.h if you use a different STM32 series
-#include <stdint.h>
+/****************************************************************************
+ * @note Modifier en fonction de votre carte STM32.
+ *****************************************************************************/
+#include "stm32l4xx_hal.h" // Inclure le fichier d'en-tête HAL pour STM32L4xx
+
+/****************************************************************************
+ * @note Dé-commenter la ligne suivante pour activer les messages de débogage via printf.
+ *****************************************************************************/
+//#define DEBUG_ON // Définit DEBUG_ON pour activer les messages de débogage
+
+#ifdef DEBUG_ON
+    #include <stdio.h> // Inclure stdio.h pour utiliser printf
+    #define DEBUG_PRINT(fmt, ...) printf(fmt, ##__VA_ARGS__) // Macro pour l'affichage de débogage
+#else
+    #define DEBUG_PRINT(fmt, ...) ((void)0) // Macro vide si le débogage est désactivé
+#endif
+
+/* Déclarations des fonctions pour manipuler le LCD */
 
 /**
- * @brief DHT20 Sensor Handle Structure.
- *        Contains the I2C handle and the device address.
+ * @brief Initialise le LCD.
+ * @param hi2c Pointeur vers la structure I2C_HandleTypeDef.
+ * @param columns Nombre de colonnes du LCD.
+ * @param rows Nombre de lignes du LCD.
+ * @param i2c_address Adresse I2C du LCD.
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
  */
-typedef struct {
-	I2C_HandleTypeDef *hi2c;     // Pointer to the I2C handle initialized in main.c
-	uint8_t           address;   // I2C address of the sensor (shifted << 1)
-	uint32_t          i2c_timeout; // Timeout for I2C operations in ms
-} DHT20_Handle;
+HAL_StatusTypeDef lcd_init(I2C_HandleTypeDef *hi2c, uint8_t columns, uint8_t rows, uint8_t i2c_address); // Initialisation de l'écran LCD
 
 /**
- * @brief Initializes the DHT20 sensor handle.
- * @param dht Pointer to the DHT20_Handle structure.
- * @param hi2c Pointer to the I2C_HandleTypeDef structure.
- * @param address The 7-bit I2C address of the sensor (e.g., 0x38).
- * @param timeout I2C communication timeout in milliseconds.
+ * @brief Écrit une chaîne de caractères sur le LCD.
+ * @param str Chaîne de caractères à écrire.
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
  */
-void DHT20_Init(DHT20_Handle *dht, I2C_HandleTypeDef *hi2c, uint8_t address, uint32_t timeout);
+HAL_StatusTypeDef lcd_write_string(char *str);
 
 /**
- * @brief Checks the initial status of the DHT20 sensor after power-on.
- * @param dht Pointer to the initialized DHT20_Handle structure.
- * @retval HAL_StatusTypeDef HAL status of the I2C communication.
+ * @brief Écrit un seul caractère sur le LCD.
+ * @param ascii_char Caractère ASCII à écrire.
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
  */
-HAL_StatusTypeDef DHT20_Check_Status(DHT20_Handle *dht);
+HAL_StatusTypeDef lcd_write_char(char ascii_char);
 
 /**
- * @brief Reads temperature and humidity data from the DHT20 sensor.
- * @param dht Pointer to the initialized DHT20_Handle structure.
- * @param temperature Pointer to a float variable to store the temperature in Celsius.
- * @param humidity Pointer to a float variable to store the relative humidity in %.
- * @retval HAL_StatusTypeDef HAL status of the operation (HAL_OK, HAL_ERROR, HAL_BUSY, HAL_TIMEOUT).
+ * @brief Positionne le curseur sur le LCD.
+ * @param row Ligne du curseur (0-based).
+ * @param column Colonne du curseur (0-based).
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
  */
-HAL_StatusTypeDef DHT20_ReadData(DHT20_Handle *dht, float *temperature, float *humidity);
+HAL_StatusTypeDef lcd_set_cursor(uint8_t row, uint8_t column);
 
-#endif /* INC_STM32_DHT20_I2C_H_ */
+/**
+ * @brief Efface l'affichage du LCD.
+ * @note Cette fonction introduit un délai bloquant.
+ */
+HAL_StatusTypeDef lcd_clear(void);
+
+/**
+ * @brief Replace le curseur en position (0,0) sans effacer l'écran.
+ * @note Cette fonction introduit un délai bloquant.
+ */
+HAL_StatusTypeDef lcd_home(void);
+
+/**
+ * @brief Contrôle l'état du rétroéclairage.
+ * @param state État du rétroéclairage (1 pour allumé, 0 pour éteint).
+ * @note L'état prend effet lors de la prochaine transmission I2C.
+ */
+void lcd_backlight(uint8_t state);
+
+/**
+ * @brief Crée un caractère personnalisé.
+ * @param location Emplacement dans la CGRAM (0-7).
+ * @param charmap Tableau de 8 octets définissant le caractère.
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_create_char(uint8_t location, uint8_t charmap[8]);
+
+/**
+ * @brief Affiche un caractère personnalisé préalablement créé.
+ * @param location Emplacement du caractère dans la CGRAM (0-7).
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_put_custom_char(uint8_t location);
+
+/**
+ * @brief Active l'affichage du LCD (si éteint).
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_display_on(void);
+
+/**
+ * @brief Désactive l'affichage du LCD (le contenu reste en mémoire).
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_display_off(void);
+
+/**
+ * @brief Affiche le curseur (souligné).
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_cursor_on(void);
+
+/**
+ * @brief Masque le curseur.
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_cursor_off(void);
+
+/**
+ * @brief Active le clignotement du curseur (bloc).
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_blink_on(void);
+
+/**
+ * @brief Désactive le clignotement du curseur.
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_blink_off(void);
 
 
+/**
+ * @brief Envoie des données (un caractère à afficher) au LCD.
+ * @param data Données (octet du caractère) à envoyer.
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_send_data(uint8_t data);
+
+/**
+ * @brief Décale tout l'affichage d'une colonne vers la gauche (commande native).
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_scroll_display_left(void);
+
+/**
+ * @brief Décale tout l'affichage d'une colonne vers la droite (commande native).
+ * @retval HAL_StatusTypeDef Statut de l'opération HAL.
+ */
+HAL_StatusTypeDef lcd_scroll_display_right(void);
+
+#endif  // STM32_I2C_LCD_H
