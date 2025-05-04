@@ -149,29 +149,29 @@ int8_t BME280_Init(BME280_Handle_t *dev, I2C_HandleTypeDef *hi2c, uint8_t dev_ad
     dev->dev_addr = dev_addr;
     dev->t_fine = 0;
 
-    uint8_t chip_id;
-    HAL_StatusTypeDef status;
+    uint8_t chip_id; // Variable pour stocker l'identifiant de la puce
+    HAL_StatusTypeDef status; // Variable pour stocker le statut des opérations HAL
 
-    // Configuration par défaut si non fournie
+    // Configuration par défaut si aucune configuration n'est fournie
     BME280_Config_t default_config;
-    if (config == NULL) {
-        default_config.mode = BME280_MODE_NORMAL;
-        default_config.oversampling_p = BME280_OVERSAMPLING_X1;
-        default_config.oversampling_t = BME280_OVERSAMPLING_X1;
-        default_config.oversampling_h = BME280_OVERSAMPLING_X1;
-        default_config.filter = BME280_FILTER_OFF;
-        default_config.standby_time = BME280_STANDBY_1000_MS;
-        dev->config = default_config;
-        DEBUG_PRINT("Utilisation de la configuration par défaut.\r\n");
-    } else {
-        dev->config = *config;
-        DEBUG_PRINT("Utilisation de la configuration fournie.\r\n");
+    if (config == NULL) { // Vérifie si la configuration fournie est NULL
+        default_config.mode = BME280_MODE_NORMAL; // Mode de fonctionnement par défaut : Normal
+        default_config.oversampling_p = BME280_OVERSAMPLING_X1; // Suréchantillonnage de la pression : x1
+        default_config.oversampling_t = BME280_OVERSAMPLING_X1; // Suréchantillonnage de la température : x1
+        default_config.oversampling_h = BME280_OVERSAMPLING_X1; // Suréchantillonnage de l'humidité : x1
+        default_config.filter = BME280_FILTER_OFF; // Filtrage désactivé
+        default_config.standby_time = BME280_STANDBY_1000_MS; // Temps d'attente par défaut : 1000 ms
+        dev->config = default_config; // Applique la configuration par défaut au périphérique
+        DEBUG_PRINT("Utilisation de la configuration par défaut.\r\n"); // Message de débogage
+    } else { // Si une configuration est fournie
+        dev->config = *config; // Applique la configuration fournie au périphérique
+        DEBUG_PRINT("Utilisation de la configuration fournie.\r\n"); // Message de débogage
     }
 
-    // Vérifier la communication et l'ID de la puce
+    // Vérifie si le périphérique I2C est prêt à l'adresse spécifiée
     if (HAL_I2C_IsDeviceReady(dev->hi2c, (dev->dev_addr << 1), 2, 100) != HAL_OK) {
-        DEBUG_PRINT("Erreur : Périphérique I2C non trouvé à l'adresse 0x%02X.\r\n", dev->dev_addr);
-        return BME280_ERROR_COMM;
+        DEBUG_PRINT("Erreur : Périphérique I2C non trouvé à l'adresse 0x%02X.\r\n", dev->dev_addr); // Message d'erreur si le périphérique n'est pas trouvé
+        return BME280_ERROR_COMM; // Retourne une erreur de communication
     }
 
     // Lire l'ID de la puce

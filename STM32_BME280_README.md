@@ -29,7 +29,6 @@ Cette bibliothèque fournit une interface simple pour interagir avec le capteur 
 
 1.  **Copiez les fichiers** : Copiez les fichiers `STM32_BME280.h` et `STM32_BME280.c` dans votre projet STM32 (par exemple, dans les dossiers `Core/Inc` et `Core/Src` ou dans des dossiers dédiés `Drivers/BME280`).
 2.  **Incluez l'en-tête** : Ajoutez `#include "STM32_BME280.h"` dans les fichiers où vous souhaitez utiliser la bibliothèque (typiquement `main.c`).
-
 ## Utilisation de base
 
 Voici un exemple simple d'utilisation dans votre fichier `main.c` :
@@ -56,7 +55,7 @@ BME280_Handle_t bme280_dev;
 
 ```c
 /* USER CODE BEGIN 0 */
-// Fonction qui transmet un caractère via UART et le renvoie.Utilisé pour la sortie standard (printf).
+// Fonction qui transmet un caractère via UART et le renvoie. Utilisé pour la sortie standard (printf).
 int __io_putchar(int ch) {
     HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF); // Pour Envoyer le caractère via UART
     // ITM_SendChar(ch);                 // Option alternative pour envoyer le caractère via ITM
@@ -82,18 +81,18 @@ printf("Initialisation BME280...\r\n");
 int8_t init_status = BME280_Init(&bme280_dev, &hi2c1, BME280_ADDRESS_DEFAULT, &bme_config); // Passer la config
 if (init_status != BME280_OK) {
   switch (init_status) {
-	  case BME280_ERROR_COMM:
-		  printf("Erreur de communication avec le capteur BME280.\r\n");
-		  break;
-	  case BME280_ERROR_CHIP_ID:
-		  printf("ID de puce incorrect pour le capteur BME280.\r\n");
-		  break;
-	  case BME280_ERROR_CONFIG:
-		  printf("Erreur lors de la configuration du capteur BME280.\r\n");
-		  break;
-	  default:
-		  printf("Erreur inconnue lors de l'initialisation du BME280.\r\n");
-		  break;
+      case BME280_ERROR_COMM:
+          printf("Erreur de communication avec le capteur BME280.\r\n");
+          break;
+      case BME280_ERROR_CHIP_ID:
+          printf("ID de puce incorrect pour le capteur BME280.\r\n");
+          break;
+      case BME280_ERROR_CONFIG:
+          printf("Erreur lors de la configuration du capteur BME280.\r\n");
+          break;
+      default:
+          printf("Erreur inconnue lors de l'initialisation du BME280.\r\n");
+          break;
   }
   Error_Handler();
 }
@@ -120,7 +119,6 @@ HAL_Delay(100); // Petit délai pour laisser le capteur se stabiliser
       printf("-----------------------------------------------------\r\n\n");
       HAL_Delay(SENSOR_READ_DELAY_MS);
     /* USER CODE END WHILE */
-    
 ```
 
 ## Référence API
