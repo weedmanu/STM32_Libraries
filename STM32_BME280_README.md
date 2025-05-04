@@ -34,7 +34,7 @@ Cette bibliothèque fournit une interface simple pour interagir avec le capteur 
 
 Voici un exemple simple d'utilisation dans votre fichier `main.c` :
 
-L'import des librairies :
+1.  **Inclure l'en-tête :**
 
 ```c
 /* USER CODE BEGIN Includes */
@@ -43,7 +43,7 @@ L'import des librairies :
 /* USER CODE END Includes */
 ```
 
-Les defines :
+2.  **Déclarer les constantes préprocesseur :**
 
 ```c
 /* USER CODE BEGIN PD */
@@ -51,13 +51,15 @@ Les defines :
 /* USER CODE END PD */
 ```
 
-Les variables :
+3.  **Déclarer des variables globales :**
 
 ```c
 /* USER CODE BEGIN PV */
 BME280_Handle_t bme280_dev; // Structure pour le capteur BME280
 /* USER CODE END PV */
 ```
+
+4.  **Redirection `printf` pour l'affichage :**    
 
 ```c
 /* USER CODE BEGIN 0 */
@@ -69,7 +71,49 @@ int __io_putchar(int ch) {
 /* USER CODE END 0 */
 ```
 
-L'initialisation avec les paramètres par défaut (mode normal, filter off, oversampling_p = 4, oversampling_t = 2, oversampling_h = 2, standby_time = 1000ms):
+5.  **Initialiser le capteur :**
+
+### 5.1 Initialisation avec les paramètres par défaut
+
+L'initialisation avec les paramètres par défaut configure le capteur en mode normal avec les réglages suivants :
+- Filtre : désactivé (`filter = BME280_FILTER_OFF`)
+- Suréchantillonnage de la pression : x4 (`oversampling_p = BME280_OVERSAMPLING_X4`)
+- Suréchantillonnage de la température : x2 (`oversampling_t = BME280_OVERSAMPLING_X2`)
+- Suréchantillonnage de l'humidité : x2 (`oversampling_h = BME280_OVERSAMPLING_X2`)
+- Temps d'attente : 1000 ms (`standby_time = BME280_STANDBY_1000_MS`)
+
+Voici un exemple d'initialisation avec ces paramètres par défaut :
+
+```c
+/* USER CODE BEGIN 2 */
+HAL_Delay(250);
+// Initialisation du BME280 via la librairie
+printf("Initialisation BME280 avec les paramètres par défaut...\r\n");
+
+int8_t init_status = BME280_Init(&bme280_dev, &hi2c1, BME280_ADDRESS_DEFAULT, NULL); // NULL pour utiliser les paramètres par défaut
+
+if (init_status != BME280_OK) {     // Vérification de l'initialisation
+    switch (init_status) {            // Gestion des erreurs
+            case BME280_ERROR_COMM:
+                    printf("Erreur de communication avec le capteur BME280.\r\n");
+                    break;
+            case BME280_ERROR_CHIP_ID:
+                    printf("ID de puce incorrect pour le capteur BME280.\r\n");
+                    break;
+            case BME280_ERROR_CONFIG:
+                    printf("Erreur lors de la configuration du capteur BME280.\r\n");
+                    break;
+            default:
+                    printf("Erreur inconnue lors de l'initialisation du BME280.\r\n");
+                    break;
+    }
+    Error_Handler();                   
+}
+printf("BME280 initialisé avec succès avec les paramètres par défaut.\r\n");
+printf("-----------------------------------------------------\r\n\n");
+HAL_Delay(100); // Petit délai pour laisser le capteur se stabiliser
+/* USER CODE END 2 */
+```
 
 ```c
 /* USER CODE BEGIN 2 */
@@ -102,7 +146,9 @@ HAL_Delay(100); // Petit délai pour laisser le capteur se stabiliser
 /* USER CODE END 2 */
 ```
 
-L'initialisation avec des paramètres personnalisés :
+5.2 **Initialisation avec une configuration personnalisée**
+
+Vous pouvez également initialiser le capteur avec une configuration personnalisée
 
 ```c
 /* USER CODE BEGIN 2 */
@@ -144,6 +190,7 @@ HAL_Delay(100); // Petit délai pour laisser le capteur se stabiliser
 /* USER CODE END 2 */
 ```
 
+6.  **Lire les données du capteur :**
 
 ```c
 /* USER CODE BEGIN WHILE */
