@@ -29,6 +29,7 @@ Cette bibliothèque fournit une interface simple pour interagir avec le capteur 
 
 1.  **Copiez les fichiers** : Copiez les fichiers `STM32_BME280.h` et `STM32_BME280.c` dans votre projet STM32 (par exemple, dans les dossiers `Core/Inc` et `Core/Src` ou dans des dossiers dédiés `Drivers/BME280`).
 2.  **Incluez l'en-tête** : Ajoutez `#include "STM32_BME280.h"` dans les fichiers où vous souhaitez utiliser la bibliothèque (typiquement `main.c`).
+
 ## Utilisation de base
 
 Voici un exemple simple d'utilisation dans votre fichier `main.c` :
@@ -58,7 +59,6 @@ BME280_Handle_t bme280_dev;
 // Fonction qui transmet un caractère via UART et le renvoie. Utilisé pour la sortie standard (printf).
 int __io_putchar(int ch) {
     HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF); // Pour Envoyer le caractère via UART
-    // ITM_SendChar(ch);                 // Option alternative pour envoyer le caractère via ITM
     return ch;
 }
 /* USER CODE END 0 */
@@ -163,12 +163,50 @@ HAL_Delay(100); // Petit délai pour laisser le capteur se stabiliser
 
 ## Options de Configuration
 
-La structure `BME280_Config_t` permet de régler :
+La structure `BME280_Config_t` permet de configurer les paramètres suivants :
 
-*   `mode`: `BME280_MODE_SLEEP`, `BME280_MODE_FORCED`, `BME280_MODE_NORMAL`.
-*   `oversampling_p`, `oversampling_t`, `oversampling_h`: `BME280_OVERSAMPLING_SKIPPED`, `_X1`, `_X2`, `_X4`, `_X8`, `_X16`.
-*   `filter`: `BME280_FILTER_OFF`, `_X2`, `_X4`, `_X8`, `_X16`. Réduit les fluctuations rapides.
-*   `standby_time`: `BME280_STANDBY_0_5_MS` à `BME280_STANDBY_1000_MS`, `_10_MS`, `_20_MS`. Temps entre les mesures en mode `NORMAL`.
+### 1. **Mode de fonctionnement (`mode`)**
+Détermine comment le capteur effectue les mesures :
+- `BME280_MODE_SLEEP` : Mode veille, aucune mesure.
+- `BME280_MODE_FORCED` : Une seule mesure, puis retour en veille.
+- `BME280_MODE_NORMAL` : Mesures périodiques en continu.
+
+### 2. **Suréchantillonnage**
+Améliore la précision des mesures en effectuant plusieurs lectures :
+- `oversampling_t` : Suréchantillonnage pour la température.
+- `oversampling_p` : Suréchantillonnage pour la pression.
+- `oversampling_h` : Suréchantillonnage pour l'humidité.
+
+Options disponibles :
+- `BME280_OVERSAMPLING_SKIPPED` : Désactivé.
+- `BME280_OVERSAMPLING_X1` : Une seule mesure.
+- `BME280_OVERSAMPLING_X2` : Suréchantillonnage x2.
+- `BME280_OVERSAMPLING_X4` : Suréchantillonnage x4.
+- `BME280_OVERSAMPLING_X8` : Suréchantillonnage x8.
+- `BME280_OVERSAMPLING_X16` : Suréchantillonnage x16.
+
+### 3. **Filtre IIR (`filter`)**
+Réduit les fluctuations rapides dans les mesures :
+- `BME280_FILTER_OFF` : Pas de filtrage.
+- `BME280_FILTER_X2` : Filtrage léger.
+- `BME280_FILTER_X4` : Filtrage modéré.
+- `BME280_FILTER_X8` : Filtrage élevé.
+- `BME280_FILTER_X16` : Filtrage très élevé.
+
+### 4. **Temps d'attente (`standby_time`)**
+Définit l'intervalle entre deux cycles de mesure en mode `NORMAL` :
+- `BME280_STANDBY_0_5_MS` : 0,5 ms.
+- `BME280_STANDBY_62_5_MS` : 62,5 ms.
+- `BME280_STANDBY_125_MS` : 125 ms.
+- `BME280_STANDBY_250_MS` : 250 ms.
+- `BME280_STANDBY_500_MS` : 500 ms.
+- `BME280_STANDBY_1000_MS` : 1000 ms.
+- `BME280_STANDBY_10_MS` : 10 ms.
+- `BME280_STANDBY_20_MS` : 20 ms.
+
+---
+
+Ces options permettent de personnaliser le comportement du capteur en fonction des besoins spécifiques de votre application.
 
 ## Débogage
 
