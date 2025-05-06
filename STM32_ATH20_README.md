@@ -9,19 +9,19 @@ Cette librairie fournit une interface simple pour communiquer avec le capteur de
 3.  [Fichiers de la librairie](#fichiers-de-la-librairie)
 4.  [Installation et Intégration](#installation-et-intégration)
 5.  [Utilisation](#utilisation)
-    *   [Inclusion](#inclusion)
-    *   [Initialisation](#initialisation)
-    *   [Lecture des mesures](#lecture-des-mesures)
-    *   [Gestion des erreurs](#gestion-des-erreurs)
-    *   [Exemple complet](#exemple-complet)
+    1.  [Inclusion](#inclusion)
+    2.  [Initialisation](#initialisation)
+    3.  [Lecture des mesures](#lecture-des-mesures)
+    4.  [Gestion des erreurs](#gestion-des-erreurs)
+    5.  [Exemple complet](#exemple-complet)
 6.  [Fonctions détaillées](#fonctions-détaillées)
-    *   [`AHT20_Init`](#aht20_init)
-    *   `AHT20_SoftReset`
-    *   `AHT20_GetStatus`
-    *   `AHT20_ReadMeasurements`
-7.  Calibration
-8.  Constantes importantes
-9.  Dépannage
+    1.  [`AHT20_Init`](#aht20_init)
+    2.  [`AHT20_SoftReset`](#aht20_softreset)
+    3.  [`AHT20_GetStatus`](#aht20_getstatus)
+    4.  [`AHT20_ReadMeasurements`](#aht20_readmeasurements)
+7.  [Calibration](#calibration)
+8.  [Constantes importantes](#constantes-importantes)
+9.  [Dépannage](#dépannage)
 
 ## Introduction
 
@@ -54,7 +54,7 @@ La librairie est composée de deux fichiers principaux :
 
 ## Utilisation
 
-### Inclusion
+### 1. Inclusion
 
 Incluez le fichier d'en-tête dans votre fichier `main.c` :
 
