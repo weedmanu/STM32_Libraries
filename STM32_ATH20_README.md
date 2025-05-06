@@ -13,7 +13,6 @@ Cette librairie fournit une interface simple pour communiquer avec le capteur de
     2.  [Initialisation](#initialisation)
     3.  [Lecture des mesures](#lecture-des-mesures)
     4.  [Gestion des erreurs](#gestion-des-erreurs)
-    5.  [Exemple complet](#exemple-complet)
 6.  [Fonctions détaillées](#fonctions-détaillées)
     1.  [`AHT20_Init`](#aht20_init)
     2.  [`AHT20_SoftReset`](#aht20_softreset)
@@ -109,9 +108,6 @@ HAL_Delay(2000); // Attendre avant la prochaine lecture
 
 Toutes les fonctions de la librairie retournent un statut de type `AHT20_Status`. Il est crucial de vérifier cette valeur pour s'assurer que l'opération s'est déroulée correctement. Les statuts possibles sont définis dans `STM32_AHT20.h` (par exemple `AHT20_OK`, `AHT20_ERROR_I2C`, `AHT20_ERROR_CALIBRATION`, `AHT20_ERROR_BUSY`, `AHT20_ERROR_CHECKSUM`).
 
-### Exemple complet
-
-Référez-vous au fichier `c:\Users\weedm\STM32CubeIDE\Librairies\STM32_AHT20\Core\Src\main.c` fourni dans le contexte pour un exemple d'intégration complet, incluant l'initialisation de l'I2C, l'UART pour `printf`, et la boucle de lecture des mesures.
 
 ## Fonctions détaillées
 
