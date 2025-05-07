@@ -73,7 +73,7 @@ La bibliothèque expose les fonctions suivantes (définies dans `STM32_HTS221.h`
 
 ```c
 /* USER CODE BEGIN Includes */
-#include &lt;stdio.h&gt;
+#include <stdio.h>
 #include "STM32_HTS221.h"
 /* USER CODE END Includes */
 ```
