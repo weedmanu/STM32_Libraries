@@ -231,6 +231,7 @@ HAL_StatusTypeDef lcd_home(void) {
 void lcd_backlight(uint8_t state) {
 	DEBUG_PRINT("lcd_backlight: Setting backlight state to %d.\r\n", state ? 1 : 0);
 	backlight_state = state ? 1 : 0; // Met à jour la variable statique
+	lcd_send_cmd(0x00); 			 // Envoie une commande vide pour forcer l'envoi de l'état du rétroéclairage
 }
 
 /**
