@@ -112,164 +112,165 @@ void HTS221_ReadCalibration(I2C_HandleTypeDef *hi2c); // Prototype de la fonctio
 ```c
 /* USER CODE BEGIN 0 */
 /**
- * @brief  Redirect printf output to UART2
- * @param  ch: Character to send
- * @retval Character sent
+ * @brief  Redirige la sortie de printf vers l'UART2
+ * @param  ch: Caractère à envoyer
+ * @retval Caractère envoyé
  */
 int __io_putchar(int ch) {
-    HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF); // Send character through UART2
-    return ch;
+    HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF); // Envoie le caractère via l'UART2
+    return ch; // Retourne le caractère envoyé
 }
 
 /**
- * @brief  Scan I2C bus to find connected devices
- * @param  hi2c: Pointer to I2C handle
- * @retval None
+ * @brief  Scanne le bus I2C pour trouver les périphériques connectés
+ * @param  hi2c: Pointeur vers la structure de gestion du bus I2C
+ * @retval Aucun
  */
 void I2C_Scan(I2C_HandleTypeDef *hi2c)
 {
-    HAL_Delay(500);                 // Small delay of 500ms
-    printf("I2C Scanner\r\n\r\n");  // Display start of I2C scanning process
-    char Buffer[8] = {0};           // Buffer to store formatted address
-    uint8_t i = 0;                  // Index for loop
-    uint8_t ret;                    // Return value from device check
+    HAL_Delay(500);                 // Petite pause de 500 ms
+    printf("Scanner I2C\r\n\r\n");  // Affiche le début du processus de scan I2C
+    char Buffer[8] = {0};           // Buffer pour stocker les adresses formatées
+    uint8_t i = 0;                  // Index pour la boucle
+    uint8_t ret;                    // Valeur de retour pour vérifier les périphériques
 
-    /*-[ I2C Bus Scanning ]-*/
-    printf("Starting I2C scan: \r\n");
-    for(i = 1; i < 128; i++)        // Scan all possible I2C addresses (1-127)
+    /*-[ Scan du bus I2C ]-*/
+    printf("Début du scan I2C : \r\n"); // Indique le début du scan
+    for(i = 1; i < 128; i++)        // Parcourt toutes les adresses I2C possibles (1-127)
     {
-        // Check if a device is ready at address 'i' (left-shifted by 1 to match 7-bit address format)
+        // Vérifie si un périphérique est prêt à l'adresse 'i' (décalée à gauche pour le format 7 bits)
         ret = HAL_I2C_IsDeviceReady(hi2c, (uint16_t)(i << 1), 3, 5);
-        if (ret != HAL_OK)          // If device is not ready
+        if (ret != HAL_OK)          // Si le périphérique n'est pas prêt
         {
-            printf(" * ");          // Print asterisk for non-responding address
+            printf(" * ");          // Affiche une étoile pour les adresses non répondantes
         }
-        else if (ret == HAL_OK)     // If device is ready
+        else if (ret == HAL_OK)     // Si le périphérique est prêt
         {
-            sprintf(Buffer, "0x%X", i);     // Format address as hex string
-            printf("%s", (uint8_t *)Buffer); // Print found device address
+            sprintf(Buffer, "0x%X", i);     // Formate l'adresse en chaîne hexadécimale
+            printf("%s", (uint8_t *)Buffer); // Affiche l'adresse du périphérique trouvé
         }
     }
-    printf("\r\nScan complete! \r\n\r\n");
+    printf("\r\nScan terminé ! \r\n\r\n"); // Indique la fin du scan
 }
 
 /*----------------------------------------------------------------------------------*/
-/*                       HTS221 HUMIDITY & TEMPERATURE FUNCTIONS                     */
+/*                       FONCTIONS POUR LE CAPTEUR HTS221                           */
 /*----------------------------------------------------------------------------------*/
 
 /**
- * @brief  Write to HTS221 register
- * @param  reg: Register address
- * @param  value: Value to write
- * @retval None
+ * @brief  Écrit dans un registre du HTS221
+ * @param  hi2c: Pointeur vers la structure I2C
+ * @param  reg: Adresse du registre
+ * @param  value: Valeur à écrire
+ * @retval Aucun
  */
-void HTS221_WriteRegister(uint8_t reg, uint8_t value)
+void HTS221_WriteRegister(I2C_HandleTypeDef *hi2c, uint8_t reg, uint8_t value)
 {
     uint8_t data[2] = {reg, value};
-    if (HAL_I2C_Master_Transmit(&hi2c1, HTS221_I2C_ADDRESS, data, 2, HAL_MAX_DELAY) != HAL_OK)
+    if (HAL_I2C_Master_Transmit(hi2c, HTS221_I2C_ADDRESS, data, 2, HAL_MAX_DELAY) != HAL_OK)
     {
-        printf("Error writing to register 0x%02X\r\n", reg);
+        printf("Erreur lors de l'écriture dans le registre 0x%02X\r\n", reg);
     }
 }
 
 /**
- * @brief  Read from HTS221 register
- * @param  reg: Register address
- * @retval Register value
+ * @brief  Lit un registre du HTS221
+ * @param  hi2c: Pointeur vers la structure I2C
+ * @param  reg: Adresse du registre
+ * @retval Valeur du registre
  */
-uint8_t HTS221_ReadRegister(uint8_t reg)
+uint8_t HTS221_ReadRegister(I2C_HandleTypeDef *hi2c, uint8_t reg)
 {
     uint8_t value = 0;
-    if (HAL_I2C_Master_Transmit(&hi2c1, HTS221_I2C_ADDRESS, &reg, 1, HAL_MAX_DELAY) != HAL_OK)
+    if (HAL_I2C_Master_Transmit(hi2c, HTS221_I2C_ADDRESS, &reg, 1, HAL_MAX_DELAY) != HAL_OK)
     {
-        printf("Error sending register 0x%02X to address 0x%02X\r\n", reg, HTS221_I2C_ADDRESS >> 1);
+        printf("Erreur lors de l'envoi du registre 0x%02X à l'adresse 0x%02X\r\n", reg, HTS221_I2C_ADDRESS >> 1);
         return 0;
     }
-    if (HAL_I2C_Master_Receive(&hi2c1, HTS221_I2C_ADDRESS, &value, 1, HAL_MAX_DELAY) != HAL_OK)
+    if (HAL_I2C_Master_Receive(hi2c, HTS221_I2C_ADDRESS, &value, 1, HAL_MAX_DELAY) != HAL_OK)
     {
-        printf("Error reading register 0x%02X from address 0x%02X\r\n", reg, HTS221_I2C_ADDRESS >> 1);
+        printf("Erreur lors de la lecture du registre 0x%02X à l'adresse 0x%02X\r\n", reg, HTS221_I2C_ADDRESS >> 1);
         return 0;
     }
     return value;
 }
 
 /**
- * @brief  Initialize HTS221 humidity and temperature sensor
- * @param  hi2c: Pointer to I2C handle
- * @retval None
+ * @brief  Initialise le capteur HTS221
+ * @retval Aucun
  */
 void HTS221_Init(I2C_HandleTypeDef *hi2c)
 {
-    uint8_t who_am_i = HTS221_ReadRegister(HTS221_WHO_AM_I);
-    if (who_am_i != 0xBC)  // Expected value for HTS221
+    uint8_t who_am_i = HTS221_ReadRegister(hi2c, HTS221_WHO_AM_I);
+    if (who_am_i != 0xBC)  // Valeur attendue pour le HTS221
     {
-        printf("Error: HTS221 not detected (WHO_AM_I = 0x%02X). Check I2C address or connections.\r\n", who_am_i);
+        printf("Erreur : HTS221 non détecté (WHO_AM_I = 0x%02X). Vérifiez l'adresse I2C ou les connexions.\r\n", who_am_i);
         return;
     }
-    printf("HTS221 detected (WHO_AM_I = 0x%02X)\r\n", who_am_i);
+    printf("HTS221 détecté (WHO_AM_I = 0x%02X)\r\n", who_am_i);
 
-    // Configure sensor (active mode, ODR = 1 Hz)
-    HTS221_WriteRegister(HTS221_CTRL_REG1, 0x80);  // Activate sensor
+    // Configure le capteur (mode actif, ODR = 1 Hz)
+    HTS221_WriteRegister(hi2c, HTS221_CTRL_REG1, 0x80);  // Active le capteur
 
-    // Read calibration coefficients
-    HTS221_ReadCalibration();
+    // Lit les coefficients de calibration
+    HTS221_ReadCalibration(hi2c);
 }
 
 /**
- * @brief  Read calibration coefficients from HTS221
- * @retval None
+ * @brief  Lit les coefficients de calibration du HTS221
+ * @retval Aucun
  */
-void HTS221_ReadCalibration(void)
+void HTS221_ReadCalibration(I2C_HandleTypeDef *hi2c)
 {
-    // Read temperature calibration coefficients
-    uint8_t T0_degC_x8 = HTS221_ReadRegister(0x32);
-    uint8_t T1_degC_x8 = HTS221_ReadRegister(0x33);
-    uint8_t T0_T1_msb = HTS221_ReadRegister(0x35);
+    // Lecture des coefficients de calibration pour la température
+    uint8_t T0_degC_x8 = HTS221_ReadRegister(hi2c, 0x32);
+    uint8_t T1_degC_x8 = HTS221_ReadRegister(hi2c, 0x33);
+    uint8_t T0_T1_msb = HTS221_ReadRegister(hi2c, 0x35);
 
     T0_degC = (float)((T0_degC_x8 | ((T0_T1_msb & 0x03) << 8)) / 8.0);
     T1_degC = (float)((T1_degC_x8 | ((T0_T1_msb & 0x0C) << 6)) / 8.0);
 
-    T0_OUT = (int16_t)(HTS221_ReadRegister(0x3C) | (HTS221_ReadRegister(0x3D) << 8));
-    T1_OUT = (int16_t)(HTS221_ReadRegister(0x3E) | (HTS221_ReadRegister(0x3F) << 8));
+    T0_OUT = (int16_t)(HTS221_ReadRegister(hi2c, 0x3C) | (HTS221_ReadRegister(hi2c, 0x3D) << 8));
+    T1_OUT = (int16_t)(HTS221_ReadRegister(hi2c, 0x3E) | (HTS221_ReadRegister(hi2c, 0x3F) << 8));
 
-    // Read humidity calibration coefficients
-    uint8_t H0_rh_x2 = HTS221_ReadRegister(0x30);
-    uint8_t H1_rh_x2 = HTS221_ReadRegister(0x31);
+    // Lecture des coefficients de calibration pour l'humidité
+    uint8_t H0_rh_x2 = HTS221_ReadRegister(hi2c, 0x30);
+    uint8_t H1_rh_x2 = HTS221_ReadRegister(hi2c, 0x31);
 
     H0_rh = (float)(H0_rh_x2 / 2.0);
     H1_rh = (float)(H1_rh_x2 / 2.0);
 
-    H0_T0_OUT = (int16_t)(HTS221_ReadRegister(0x36) | (HTS221_ReadRegister(0x37) << 8));
-    H1_T0_OUT = (int16_t)(HTS221_ReadRegister(0x3A) | (HTS221_ReadRegister(0x3B) << 8));
+    H0_T0_OUT = (int16_t)(HTS221_ReadRegister(hi2c, 0x36) | (HTS221_ReadRegister(hi2c, 0x37) << 8));
+    H1_T0_OUT = (int16_t)(HTS221_ReadRegister(hi2c, 0x3A) | (HTS221_ReadRegister(hi2c, 0x3B) << 8));
 }
 
 /**
- * @brief  Read temperature from HTS221 sensor
- * @retval Temperature in degrees Celsius
+ * @brief  Lit la température depuis le capteur HTS221
+ * @retval Température en degrés Celsius
  */
 float HTS221_ReadTemperature(void)
 {
-    uint8_t temp_l = HTS221_ReadRegister(HTS221_TEMP_OUT_L);
-    uint8_t temp_h = HTS221_ReadRegister(HTS221_TEMP_OUT_H);
+    uint8_t temp_l = HTS221_ReadRegister(&hi2c1, HTS221_TEMP_OUT_L);
+    uint8_t temp_h = HTS221_ReadRegister(&hi2c1, HTS221_TEMP_OUT_H);
 
     int16_t temp_raw = (int16_t)((temp_h << 8) | temp_l);
 
-    // Convert to degrees Celsius using calibration data
+    // Conversion en degrés Celsius en utilisant les données de calibration
     return T0_degC + ((float)(temp_raw - T0_OUT) * (T1_degC - T0_degC) / (T1_OUT - T0_OUT));
 }
 
 /**
- * @brief  Read humidity from HTS221 sensor
- * @retval Relative humidity in percent
+ * @brief  Lit l'humidité depuis le capteur HTS221
+ * @retval Humidité relative en pourcentage
  */
 float HTS221_ReadHumidity(void)
 {
-    uint8_t hum_l = HTS221_ReadRegister(HTS221_HUMIDITY_OUT_L);
-    uint8_t hum_h = HTS221_ReadRegister(HTS221_HUMIDITY_OUT_H);
+    uint8_t hum_l = HTS221_ReadRegister(&hi2c1, HTS221_HUMIDITY_OUT_L);
+    uint8_t hum_h = HTS221_ReadRegister(&hi2c1, HTS221_HUMIDITY_OUT_H);
 
     int16_t hum_raw = (int16_t)((hum_h << 8) | hum_l);
 
-    // Convert to relative humidity using calibration data
+    // Conversion en humidité relative en utilisant les données de calibration
     return H0_rh + ((float)(hum_raw - H0_T0_OUT) * (H1_rh - H0_rh) / (H1_T0_OUT - H0_T0_OUT));
 }
 /* USER CODE END 0 */
