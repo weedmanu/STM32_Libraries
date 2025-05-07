@@ -56,11 +56,15 @@ Ce programme est conçu pour fonctionner avec une carte STM32 et le capteur d'hu
 
 ## Programme main.c
 
+1. Includes nécessaires
+
 ```c
 /* USER CODE BEGIN Includes */
 #include <stdio.h>          // pour printf
 /* USER CODE END Includes */
 ```
+
+2. Déclaration des defines 
 
 ```c
 /* USER CODE BEGIN PD */
@@ -73,6 +77,8 @@ Ce programme est conçu pour fonctionner avec une carte STM32 et le capteur d'hu
 #define HTS221_TEMP_OUT_H     0x2B       // Temperature MSB register
 /* USER CODE END PD */
 ```
+
+3. Déclaration des variables globales
 
 ```c
 /* USER CODE BEGIN PV */
@@ -88,11 +94,15 @@ int16_t H1_T0_OUT = 0;  // H1 calibration raw value
 /* USER CODE END PV */
 ```
 
+4. Déclaration du prototype de la fonction HTS221_ReadCalibration
+
 ```c
 /* USER CODE BEGIN PFP */
 void HTS221_ReadCalibration(void);
 /* USER CODE END PFP */
 ```
+
+5. Fonctions pour rediriger printf vers UART2, scanner le bus I2C et pour utiliser le capteur HTS221
 
 ```c
 /* USER CODE BEGIN 0 */
@@ -259,6 +269,9 @@ float HTS221_ReadHumidity(void)
 /* USER CODE END 0 */
 ---
 
+5. Scan du bus I2C et initialisation du capteur HTS221
+
+
 ```c
 /* USER CODE BEGIN 2 */
 printf("=== Scan du bus I2C1 ===\r\n");
@@ -269,4 +282,17 @@ HAL_Delay(100); // Pause pour permettre au capteur de s'initialiser correctement
 HTS221_ReadCalibration(); // Lit les coefficients de calibration du capteur HTS221
 HAL_Delay(100); // Pause pour garantir la stabilité après la lecture des données de calibration
 /* USER CODE END 2 */
+```
+
+6. Boucle principale
+
+```c
+/* USER CODE BEGIN WHILE */
+  while (1) {    
+    printf("\r\n=== LECTURES DES CAPTEURS ===\r\n"); // Afficher un en-tête pour les lectures des capteurs   
+    float temperature_hts = HTS221_ReadTemperature(); // Lire la température en °C
+    float humidity = HTS221_ReadHumidity();           // Lire l'humidité relative en %
+    printf("HTS221 | Température : %.2f °C | Humidité : %.2f %%\r\n", temperature_hts, humidity);  // Afficher les lectures
+    HAL_Delay(1000); // Attendre 1 seconde avant la prochaine lecture
+    /* USER CODE END WHILE */
 ```
