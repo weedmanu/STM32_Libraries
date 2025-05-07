@@ -54,6 +54,11 @@ Ce programme est conçu pour fonctionner avec une carte STM32 et le capteur d'hu
 
 ---
 
+## Modifications importantes
+- **Choix du bus I2C** : Le programme permet désormais de spécifier dynamiquement le bus I2C à utiliser lors de l'initialisation du capteur HTS221. Cela est fait en passant un pointeur vers la structure `I2C_HandleTypeDef` lors de l'appel à `HTS221_Init`.
+
+---
+
 ## Programme main.c
 
 1. Includes nécessaires
@@ -68,13 +73,13 @@ Ce programme est conçu pour fonctionner avec une carte STM32 et le capteur d'hu
 
 ```c
 /* USER CODE BEGIN PD */
-#define HTS221_I2C_ADDRESS    0x5F << 1  // I2C address for the HTS221
-#define HTS221_WHO_AM_I       0x0F       // WHO_AM_I register
-#define HTS221_CTRL_REG1      0x20       // Control register 1
-#define HTS221_HUMIDITY_OUT_L 0x28       // Humidity LSB register
-#define HTS221_HUMIDITY_OUT_H 0x29       // Humidity MSB register
-#define HTS221_TEMP_OUT_L     0x2A       // Temperature LSB register
-#define HTS221_TEMP_OUT_H     0x2B       // Temperature MSB register
+#define HTS221_I2C_ADDRESS    0x5F << 1  // Adresse I2C pour le HTS221
+#define HTS221_WHO_AM_I       0x0F       // Registre WHO_AM_I
+#define HTS221_CTRL_REG1      0x20       // Registre de contrôle 1
+#define HTS221_HUMIDITY_OUT_L 0x28       // Registre LSB de l'humidité
+#define HTS221_HUMIDITY_OUT_H 0x29       // Registre MSB de l'humidité
+#define HTS221_TEMP_OUT_L     0x2A       // Registre LSB de la température
+#define HTS221_TEMP_OUT_H     0x2B       // Registre MSB de la température
 /* USER CODE END PD */
 ```
 
@@ -82,15 +87,15 @@ Ce programme est conçu pour fonctionner avec une carte STM32 et le capteur d'hu
 
 ```c
 /* USER CODE BEGIN PV */
-/* HTS221 calibration data */
-float T0_degC = 0.0;    // T0 calibration temperature in °C
-float T1_degC = 0.0;    // T1 calibration temperature in °C
-int16_t T0_OUT = 0;     // T0 calibration raw value
-int16_t T1_OUT = 0;     // T1 calibration raw value
-float H0_rh = 0.0;      // H0 calibration humidity in %RH
-float H1_rh = 0.0;      // H1 calibration humidity in %RH
-int16_t H0_T0_OUT = 0;  // H0 calibration raw value
-int16_t H1_T0_OUT = 0;  // H1 calibration raw value
+/* Données de calibration du HTS221 */
+float T0_degC = 0.0;    // Température de calibration T0 en °C
+float T1_degC = 0.0;    // Température de calibration T1 en °C
+int16_t T0_OUT = 0;     // Valeur brute de calibration T0
+int16_t T1_OUT = 0;     // Valeur brute de calibration T1
+float H0_rh = 0.0;      // Humidité de calibration H0 en %RH
+float H1_rh = 0.0;      // Humidité de calibration H1 en %RH
+int16_t H0_T0_OUT = 0;  // Valeur brute de calibration H0
+int16_t H1_T0_OUT = 0;  // Valeur brute de calibration H1
 /* USER CODE END PV */
 ```
 
@@ -98,7 +103,7 @@ int16_t H1_T0_OUT = 0;  // H1 calibration raw value
 
 ```c
 /* USER CODE BEGIN PFP */
-void HTS221_ReadCalibration(void);
+void HTS221_ReadCalibration(I2C_HandleTypeDef *hi2c); // Prototype de la fonction de lecture des coefficients de calibration
 /* USER CODE END PFP */
 ```
 
@@ -190,9 +195,10 @@ uint8_t HTS221_ReadRegister(uint8_t reg)
 
 /**
  * @brief  Initialize HTS221 humidity and temperature sensor
+ * @param  hi2c: Pointer to I2C handle
  * @retval None
  */
-void HTS221_Init(void)
+void HTS221_Init(I2C_HandleTypeDef *hi2c)
 {
     uint8_t who_am_i = HTS221_ReadRegister(HTS221_WHO_AM_I);
     if (who_am_i != 0xBC)  // Expected value for HTS221
@@ -277,9 +283,9 @@ float HTS221_ReadHumidity(void)
 printf("=== Scan du bus I2C1 ===\r\n");
 I2C_Scan(&hi2c1); // Lance le scan du bus I2C1 pour détecter les périphériques connectés
 printf("Initialisation du capteur d'humidité et de température HTS221...\r\n");
-HTS221_Init();  // Initialise le capteur de température et d'humidité HTS221
+HTS221_Init(&hi2c1);  // Initialise le capteur de température et d'humidité HTS221
 HAL_Delay(100); // Pause pour permettre au capteur de s'initialiser correctement
-HTS221_ReadCalibration(); // Lit les coefficients de calibration du capteur HTS221
+HTS221_ReadCalibration(&hi2c1); // Lit les coefficients de calibration du capteur HTS221
 HAL_Delay(100); // Pause pour garantir la stabilité après la lecture des données de calibration
 /* USER CODE END 2 */
 ```
@@ -288,11 +294,11 @@ HAL_Delay(100); // Pause pour garantir la stabilité après la lecture des donn�
 
 ```c
 /* USER CODE BEGIN WHILE */
-  while (1) {    
+while (1) {    
     printf("\r\n=== LECTURES DES CAPTEURS ===\r\n"); // Afficher un en-tête pour les lectures des capteurs   
     float temperature_hts = HTS221_ReadTemperature(); // Lire la température en °C
     float humidity = HTS221_ReadHumidity();           // Lire l'humidité relative en %
     printf("HTS221 | Température : %.2f °C | Humidité : %.2f %%\r\n", temperature_hts, humidity);  // Afficher les lectures
     HAL_Delay(1000); // Attendre 1 seconde avant la prochaine lecture
-    /* USER CODE END WHILE */
-```
+}
+/* USER CODE END WHILE */
