@@ -267,9 +267,9 @@ float HTS221_ReadHumidity(void)
     return H0_rh + ((float)(hum_raw - H0_T0_OUT) * (H1_rh - H0_rh) / (H1_T0_OUT - H0_T0_OUT));
 }
 /* USER CODE END 0 */
----
+```
 
-5. Scan du bus I2C et initialisation du capteur HTS221
+5. Scan du bus I2C1 et initialisation du capteur HTS221 (modifier l'i2c de votre choix)
 
 
 ```c
