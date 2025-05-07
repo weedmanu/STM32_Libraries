@@ -1,7 +1,7 @@
 # Programme STM32 pour le capteur HTS221
 
 ## Description
-Ce programme est conçu pour fonctionner avec une carte STM32 et le capteur d'humidité et de température **HTS221** monté sur le shield **X-NUCLEO-IKS01A3**. Il initialise les périphériques nécessaires, configure le capteur, lit les données de température et d'humidité, et les affiche via l'interface UART.
+Ce programme est conçu pour fonctionner avec une carte STM32 et le capteur d'humidité et de température **HTS221**. Il initialise capteur, configure le capteur, lit les données de température et d'humidité, et les affiche via l'interface UART.
 
 ---
 
