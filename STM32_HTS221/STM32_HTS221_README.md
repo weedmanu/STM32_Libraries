@@ -118,7 +118,7 @@ int __io_putchar(int ch) {
 		printf("\r\n=== LECTURES DES CAPTEURS ===\r\n");
 
 		// Lire la température en °C depuis le capteur HTS221
-		float temperature_hts = HTS221_ReadTemperature(&hi2c1);
+		float temperature = HTS221_ReadTemperature(&hi2c1);
 
 		// Lire l'humidité relative en % depuis le capteur HTS221
 		float humidity = HTS221_ReadHumidity(&hi2c1);
