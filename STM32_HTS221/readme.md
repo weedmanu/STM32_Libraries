@@ -29,7 +29,7 @@ Ce programme est conçu pour fonctionner avec une carte STM32 et le capteur d'hu
 1. Connectez le capteur HTS221 au bus I2C de la carte STM32.
 2. Configurez un terminal série (ex. PuTTY) pour lire les données via UART :
    - **Baudrate** : 115200
-   - **Parité** : None
+   - **Parité** : Aucune
    - **Bits de données** : 8
    - **Bits d'arrêt** : 1
 3. Compilez et téléchargez le programme sur la carte STM32 via STM32CubeIDE.
@@ -43,7 +43,7 @@ Ce programme est conçu pour fonctionner avec une carte STM32 et le capteur d'hu
 - **Périphériques configurés** :
   - GPIO
   - UART (USART2)
-  - I2C (I2C1)
+  - I2C (I2C2)
 - **Configuration du capteur** :
   - Activation via le registre `CTRL_REG1`.
   - Lecture des coefficients de calibration pour les calculs de température et d'humidité.
@@ -275,17 +275,17 @@ float HTS221_ReadHumidity(void)
 /* USER CODE END 0 */
 ```
 
-5. Scan du bus I2C1 et initialisation du capteur HTS221 (modifier l'i2c de votre choix)
+5. Scan du bus I2C2 et initialisation du capteur HTS221 (modifier l'i2c de votre choix)
 
 
 ```c
 /* USER CODE BEGIN 2 */
-printf("=== Scan du bus I2C1 ===\r\n");
-I2C_Scan(&hi2c1); // Lance le scan du bus I2C1 pour détecter les périphériques connectés
+printf("=== Scan du bus I2C2 ===\r\n");
+I2C_Scan(&hi2c2); // Lance le scan du bus I2C2 pour détecter les périphériques connectés
 printf("Initialisation du capteur d'humidité et de température HTS221...\r\n");
-HTS221_Init(&hi2c1);  // Initialise le capteur de température et d'humidité HTS221
+HTS221_Init(&hi2c2);  // Initialise le capteur de température et d'humidité HTS221
 HAL_Delay(100); // Pause pour permettre au capteur de s'initialiser correctement
-HTS221_ReadCalibration(&hi2c1); // Lit les coefficients de calibration du capteur HTS221
+HTS221_ReadCalibration(&hi2c2); // Lit les coefficients de calibration du capteur HTS221
 HAL_Delay(100); // Pause pour garantir la stabilité après la lecture des données de calibration
 /* USER CODE END 2 */
 ```
