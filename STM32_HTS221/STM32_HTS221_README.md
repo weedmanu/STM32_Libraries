@@ -124,7 +124,7 @@ int __io_putchar(int ch) {
 		float humidity = HTS221_ReadHumidity(&hi2c1);
 
 		// Affiche les lectures de température et d'humidité
-		printf("HTS221 | Température : %.2f °C | Humidité : %.2f %%\r\n", temperature_hts, humidity);
+		printf("HTS221 | Température : %.2f °C | Humidité : %.2f %%\r\n", temperature, humidity);
 
 		// Attendre 1 seconde avant la prochaine lecture
 		HAL_Delay(1000);
