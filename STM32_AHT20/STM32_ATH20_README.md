@@ -65,18 +65,20 @@ Incluez le fichier d'en-tête dans votre fichier `main.c` :
 
 ### Redirection du printf
 
-Pour afficher les data dans un 
+Pour afficher dans un terminal les données transmises via `printf`, vous devez rediriger la sortie standard vers un périphérique UART ou ITM. Voici un exemple de redirection via UART :
 
 ```c
 /* USER CODE BEGIN 0 */
-// Fonction qui transmet un caractère via UART et le renvoie.Utilisé pour la sortie standard (printf).
+// Fonction qui transmet un caractère via UART et le renvoie. Utilisé pour la sortie standard (printf).
 int __io_putchar(int ch) {
-HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF); // Pour Envoyer le caractère via UART
-// ITM_SendChar(ch); // Option alternative pour envoyer le caractère via ITM
-return ch;
+    HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, HAL_MAX_DELAY); // Transmet le caractère via UART
+    return ch;
 }
 /* USER CODE END 0 */
 ```
+
+Assurez-vous que l'instance UART (par exemple `huart2`) est correctement configurée dans votre projet STM32CubeMX et initialisée dans votre code.
+
 
 ### Initialisation
 
