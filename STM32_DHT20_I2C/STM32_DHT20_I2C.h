@@ -8,19 +8,20 @@
 #ifndef INC_STM32_DHT20_I2C_H_
 #define INC_STM32_DHT20_I2C_H_
 
-#include "main.h" // Change stm32l4xx_hal.h if you use a different STM32 series
+#include "stm32l0xx_hal.h" // Remplacez stm32l0xx_hal.h si vous utilisez une autre série de carte ex : stm32f4xx_hal.h.
 #include <stdint.h>
 
 // Define the default I2C address for the DHT20 sensor
-#define DHT20_SENSOR_ADDR  (0x38 << 1) // Shifted left to match STM32 HAL requirements
+#define DHT20_SENSOR_ADDR (0x38 << 1) // Shifted left to match STM32 HAL requirements
 
 /**
  * @brief DHT20 Sensor Handle Structure.
  *        Contains the I2C handle and the device address.
  */
-typedef struct {
-    I2C_HandleTypeDef *hi2c;     // Pointer to the I2C handle initialized in main.c
-    uint32_t          i2c_timeout; // Timeout for I2C operations in ms
+typedef struct
+{
+    I2C_HandleTypeDef *hi2c; // Pointer to the I2C handle initialized in main.c
+    uint32_t i2c_timeout;    // Timeout for I2C operations in ms
 } DHT20_Handle;
 
 /**
@@ -48,5 +49,3 @@ HAL_StatusTypeDef DHT20_Check_Status(DHT20_Handle *dht);
 HAL_StatusTypeDef DHT20_ReadData(DHT20_Handle *dht, float *temperature, float *humidity);
 
 #endif /* INC_STM32_DHT20_I2C_H_ */
-
-

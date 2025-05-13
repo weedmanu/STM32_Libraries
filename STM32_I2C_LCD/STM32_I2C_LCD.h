@@ -17,18 +17,18 @@
 /****************************************************************************
  * @note Modifier en fonction de votre carte STM32.
  *****************************************************************************/
-#include "stm32l4xx_hal.h" // Inclure le fichier d'en-tête HAL pour STM32L4xx
+#include "stm32l0xx_hal.h" // Remplacez stm32l0xx_hal.h si vous utilisez une autre série de carte ex : stm32f4xx_hal.h.
 
 /****************************************************************************
  * @note Dé-commenter la ligne suivante pour activer les messages de débogage via printf.
  *****************************************************************************/
-//#define DEBUG_ON // Définit DEBUG_ON pour activer les messages de débogage
+// #define DEBUG_ON // Définit DEBUG_ON pour activer les messages de débogage
 
 #ifdef DEBUG_ON
-    #include <stdio.h> // Inclure stdio.h pour utiliser printf
-    #define DEBUG_PRINT(fmt, ...) printf(fmt, ##__VA_ARGS__) // Macro pour l'affichage de débogage
+#include <stdio.h>                                       // Inclure stdio.h pour utiliser printf
+#define DEBUG_PRINT(fmt, ...) printf(fmt, ##__VA_ARGS__) // Macro pour l'affichage de débogage
 #else
-    #define DEBUG_PRINT(fmt, ...) ((void)0) // Macro vide si le débogage est désactivé
+#define DEBUG_PRINT(fmt, ...) ((void)0) // Macro vide si le débogage est désactivé
 #endif
 
 /* Déclarations des fonctions pour manipuler le LCD */
@@ -135,7 +135,6 @@ HAL_StatusTypeDef lcd_blink_on(void);
  */
 HAL_StatusTypeDef lcd_blink_off(void);
 
-
 /**
  * @brief Envoie des données (un caractère à afficher) au LCD.
  * @param data Données (octet du caractère) à envoyer.
@@ -155,4 +154,4 @@ HAL_StatusTypeDef lcd_scroll_display_left(void);
  */
 HAL_StatusTypeDef lcd_scroll_display_right(void);
 
-#endif  // STM32_I2C_LCD_H
+#endif // STM32_I2C_LCD_H
