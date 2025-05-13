@@ -52,7 +52,7 @@ La librairie est composée de deux fichiers principaux :
 
 ## Utilisation
 
-### 1. Inclusion
+### Inclusion
 
 Incluez le fichier d'en-tête dans votre fichier `main.c` :
 
@@ -61,6 +61,21 @@ Incluez le fichier d'en-tête dans votre fichier `main.c` :
 #include <stdio.h>              // Pour printf
 #include "STM32_AHT20.h"        // Pour l'utilisation de la librairie STM32_AHT20
 /* USER CODE END Includes */
+```
+
+### Redirection du printf
+
+Pour afficher les data dans un 
+
+```c
+/* USER CODE BEGIN 0 */
+// Fonction qui transmet un caractère via UART et le renvoie.Utilisé pour la sortie standard (printf).
+int __io_putchar(int ch) {
+HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF); // Pour Envoyer le caractère via UART
+// ITM_SendChar(ch); // Option alternative pour envoyer le caractère via ITM
+return ch;
+}
+/* USER CODE END 0 */
 ```
 
 ### Initialisation
