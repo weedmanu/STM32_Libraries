@@ -29,9 +29,9 @@ Le capteur AHT20 est un capteur numérique de température et d'humidité relati
 ## Prérequis
 
 *   Un microcontrôleur STM32.
-*   STM32CubeIDE ou un environnement de développement compatible.
+*   STM32CubeIDE.
 *   Le bus I2C doit être configuré et initialisé dans votre projet (généralement via STM32CubeMX).
-*   La librairie HAL STM32.
+*   La librairie HAL STM32_ATH20.
 
 ## Fichiers de la librairie
 
@@ -43,13 +43,12 @@ La librairie est composée de deux fichiers principaux :
 ## Installation et Intégration
 
 1.  **Copiez les fichiers** :
-    *   Copiez le dossier `STM32_AHT20` (contenant `STM32_AHT20.h` et `STM32_AHT20.c`) dans le répertoire de votre projet STM32, par exemple dans un dossier `Drivers` ou `Libs`.
+    *   Créez un dossier nommé  `STM32_AHT20` (contenant `STM32_AHT20.h` et `STM32_AHT20.c`) dans le répertoire de votre projet STM32, par exemple dans un dossier `Drivers` ou `Libs`.
 2.  **Ajoutez les chemins d'inclusion** :
     *   Dans les propriétés de votre projet STM32CubeIDE (Clic droit sur le projet -> Properties) :
         *   Allez dans `C/C++ General -> Paths and Symbols`.
-        *   Sous l'onglet `Includes`, pour `GNU C`, cliquez sur `Add...` et ajoutez le chemin vers le dossier où vous avez placé `STM32_AHT20.h` (par exemple, `../STM32_AHT20` si vous l'avez mis dans un dossier `STM32_AHT20` au même niveau que `Core`).
-3.  **Ajoutez les fichiers sources au build** :
-    *   Assurez-vous que `STM32_AHT20.c` est inclus dans le processus de compilation. STM32CubeIDE devrait le détecter automatiquement s'il est placé dans un dossier source connu (comme `Src` ou un sous-dossier). Sinon, ajoutez-le manuellement aux sources à compiler.
+        *   Sous l'onglet `Includes`, pour `GNU C`, cliquez sur `Add...` et ajoutez le chemin vers le dossier `STM32_AHT20`.
+
 
 ## Utilisation
 
