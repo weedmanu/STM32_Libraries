@@ -59,7 +59,7 @@ typedef struct
  * Ces fonctions constituent le point d'entrée principal pour utiliser le pilote BME680 avec STM32.
  */
 int8_t BME680_Start(struct bme680_dev *dev, I2C_HandleTypeDef *i2c_handle,
-                    bme680_delay_fptr_t delay_fptr, const BME680_InitialSettings *settings);
+                    const BME680_InitialSettings *settings);
 
 int8_t BME680_Config_Advanced(struct bme680_dev *dev, struct bme680_tph_sett *tph_settings, struct bme680_gas_sett *gas_settings, uint8_t power_mode);
 

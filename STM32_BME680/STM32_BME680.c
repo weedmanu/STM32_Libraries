@@ -798,12 +798,11 @@ int8_t bme680_init(struct bme680_dev *dev)
     return status;
 }
 int8_t BME680_Start(struct bme680_dev *dev, I2C_HandleTypeDef *i2c_handle,
-                    bme680_delay_fptr_t delay_fptr, const BME680_InitialSettings *settings)
+                    const BME680_InitialSettings *settings)
 {
     int8_t status = BME680_E_DEV_NOT_FOUND;
     /* int attempt_count = 0; // No longer needed here */
-
-    if (!dev || !i2c_handle || !delay_fptr)
+    if (!dev || !i2c_handle)
     {
         return BME680_E_NULL_PTR;
     }
@@ -812,7 +811,7 @@ int8_t BME680_Start(struct bme680_dev *dev, I2C_HandleTypeDef *i2c_handle,
     dev->hi2c = i2c_handle;
     dev->read = stm32_bme680_i2c_read;
     dev->write = stm32_bme680_i2c_write;
-    dev->delay_ms = delay_fptr;
+    dev->delay_ms = user_delay_ms; // Utilisation directe de user_delay_ms
     dev->intf = BME680_I2C_INTF;
 
     /* Try initializing with the primary I2C address */
