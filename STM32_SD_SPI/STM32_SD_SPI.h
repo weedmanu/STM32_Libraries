@@ -11,9 +11,10 @@
 #ifndef INC_STM32_SD_SPI_H_
 #define INC_STM32_SD_SPI_H_
 
-#include "diskio.h"              // FatFs Disk I/O layer
-#include "ff.h"                  // FatFs file system layer
-#include "ffconf.h"              // FatFs configuration
+#include "diskio.h" // FatFs Disk I/O layer
+#include "ff.h"     // FatFs file system layer
+#include "ffconf.h" // FatFs configuration
+#include <string.h>
 #include "STM32_SD_SPI_config.h" // Driver specific configuration
 
 // --- Low-Level Driver Configuration (from STM32_SD_SPI_config.h) ---
@@ -79,6 +80,7 @@
 extern SPI_HandleTypeDef hspi2; // Declare the SPI handle used by the driver
 
 // --- Disk I/O Interface Functions (Implemented in STM32_SD_SPI.c) ---
+
 DSTATUS SD_disk_initialize(BYTE drv);
 DSTATUS SD_disk_status(BYTE drv);
 DRESULT SD_disk_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count);
@@ -89,19 +91,36 @@ DRESULT SD_disk_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count);
 DRESULT SD_disk_ioctl(BYTE drv, BYTE ctrl, void *buff);
 #endif
 
-// --- Higher-Level Utility Functions (Implemented in STM32_SD_SPI.c) ---
+// --- Fonctions de gestion de la carte SD (Implémentées dans STM32_SD_SPI.c) ---
+
 DRESULT SD_Monter(void);
-void SD_Demonter(void);
-DRESULT SD_LireEspace(uint32_t *espaceTotal, uint32_t *espaceLibre);
-DRESULT SD_EcrireFichier(const char *nomFichier, const char *donnees);
-DRESULT SD_LireFichier(const char *nomFichier, char *tampon, size_t tailleTampon);
+DRESULT SD_Demonter(void);
+DRESULT SD_LireEspace(uint64_t *espaceTotal, uint64_t *espaceLibre);
+DRESULT SD_FormaterCarte(void); // Attention : Opération destructive ! Nécessite _USE_MKFS = 1 dans ffconf.h
+
+// --- Fonctions de gestion de fichiers (Implémentées dans STM32_SD_SPI.c) ---
+
+DRESULT SD_Creer(const char *chemin, const char *contenu);
+DRESULT SD_Supprimer(const char *chemin);
+DRESULT SD_Copier(const char *source, const char *destination);
+DRESULT SD_Deplacer(const char *source, const char *destination);
+DRESULT SD_Existe(const char *chemin, BYTE *pbExiste);
+DRESULT SD_Lister(const char *chemin);
+DRESULT SD_Lire(const char *chemin, char *tampon, size_t tailleTampon);
+DRESULT SD_Ecrire(const char *chemin, const char *donnees);
+
+// --- Fonctions de gestion des répertoires (Implémentées dans STM32_SD_SPI.c) ---
+
 DRESULT SD_ListerFichiers(const char *chemin);
-DRESULT SD_SupprimerFichier(const char *nomFichier);
-DRESULT SD_VerifierExistence(const char *nomChemin, BYTE *pbExiste);
+DRESULT SD_SupprimerRepertoire(const char *nomRepertoire);
 DRESULT SD_CreerRepertoire(const char *nomRepertoire);
-DRESULT SD_RenommerElement(const char *ancienNom, const char *nouveauNom);
-DRESULT SD_AjouterAuFichier(const char *nomFichier, const char *donnees);
-DRESULT SD_TailleFichier(const char *nomFichier, DWORD *pdwTaille);
-DRESULT SD_FormaterCarte(void); // Attention: Opération destructive! Nécessite _USE_MKFS = 1 dans ffconf.h
+
+// --- Fonctions utilitaires (Implémentées dans STM32_SD_SPI.c) ---
+
+DRESULT SD_VerifierExistence(const char *nomChemin, BYTE *pbExiste);
+DRESULT SD_VerifierEtat(void);
+DRESULT SD_ObtenirInfos(char *infoBuffer, size_t bufferSize);
+DRESULT SD_VerifierRepertoireVide(const char *nomRepertoire, BYTE *estVide);
+DRESULT SD_TesterVitesse(uint32_t *vitesseLecture, uint32_t *vitesseEcriture);
 
 #endif /* INC_STM32_SD_SPI_H_ */
