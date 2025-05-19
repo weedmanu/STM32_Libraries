@@ -100,27 +100,75 @@ DRESULT SD_FormaterCarte(void); // Attention : Opération destructive ! Nécessi
 
 // --- Fonctions de gestion de fichiers (Implémentées dans STM32_SD_SPI.c) ---
 
-DRESULT SD_Creer(const char *chemin, const char *contenu);
+/**
+ * @brief Supprime un fichier ou dossier (récursif).
+ */
 DRESULT SD_Supprimer(const char *chemin);
-DRESULT SD_Copier(const char *source, const char *destination);
-DRESULT SD_Deplacer(const char *source, const char *destination);
+
+/**
+ * @brief Vérifie l'existence d'un fichier ou dossier.
+ */
 DRESULT SD_Existe(const char *chemin, BYTE *pbExiste);
+
+/**
+ * @brief Liste le contenu d'un dossier.
+ */
 DRESULT SD_Lister(const char *chemin);
-DRESULT SD_Lire(const char *chemin, char *tampon, size_t tailleTampon);
-DRESULT SD_Ecrire(const char *chemin, const char *donnees);
 
-// --- Fonctions de gestion des répertoires (Implémentées dans STM32_SD_SPI.c) ---
+/**
+ * @brief Lit le contenu d'un fichier dans un tampon.
+ */
+DRESULT SD_Lire(const char *chemin, char *tampon, UINT tailleTampon);
 
-DRESULT SD_ListerFichiers(const char *chemin);
-DRESULT SD_SupprimerRepertoire(const char *nomRepertoire);
-DRESULT SD_CreerRepertoire(const char *nomRepertoire);
+/**
+ * @brief Écrit des données dans un fichier.
+ * @param append 0 = écraser, 1 = ajouter à la suite
+ */
+DRESULT SD_Ecrire(const char *chemin, const char *donnees, uint8_t append);
 
-// --- Fonctions utilitaires (Implémentées dans STM32_SD_SPI.c) ---
+/**
+ * @brief Renomme un fichier ou dossier.
+ */
+DRESULT SD_Renommer(const char *ancienNom, const char *nouveauNom);
 
-DRESULT SD_VerifierExistence(const char *nomChemin, BYTE *pbExiste);
-DRESULT SD_VerifierEtat(void);
-DRESULT SD_ObtenirInfos(char *infoBuffer, size_t bufferSize);
-DRESULT SD_VerifierRepertoireVide(const char *nomRepertoire, BYTE *estVide);
-DRESULT SD_TesterVitesse(uint32_t *vitesseLecture, uint32_t *vitesseEcriture);
+/**
+ * @brief Retourne la taille d'un fichier.
+ */
+DRESULT SD_TailleFichier(const char *chemin, uint32_t *taille);
+
+/**
+ * @brief Crée un fichier avec des données.
+ */
+DRESULT SD_CreerDossier(const char *chemin);
+
+/**
+ * @brief Copie un fichier.
+ */
+DRESULT SD_Copier(const char *cheminSource, const char *cheminDestination);
+
+/**
+ * @brief Déplace (ou renomme) un fichier ou dossier.
+ */
+DRESULT SD_Deplacer(const char *cheminSource, const char *cheminDestination);
+
+/**
+ * @brief Vide le contenu d'un fichier.
+ */
+DRESULT SD_ViderFichier(const char *chemin);
+
+/**
+ * @brief Lit une ligne spécifique d'un fichier.
+ */
+DRESULT SD_LireLigne(const char *chemin, char *tampon, UINT tailleTampon, UINT numeroLigne);
+
+/**
+ * @brief Affiche une taille lisible (Ko, Mo, Go...).
+ */
+DRESULT SD_AfficherTailleLisible(uint64_t taille, const char *prefixe);
+
+/**
+ * @brief Retourne le type de carte SD détectée (CT_MMC, CT_SD1, CT_SD2, CT_BLOCK)
+ */
+uint8_t SD_GetCardType(void);
 
 #endif /* INC_STM32_SD_SPI_H_ */

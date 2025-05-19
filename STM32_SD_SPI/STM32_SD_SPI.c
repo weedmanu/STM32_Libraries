@@ -1,6 +1,6 @@
-#include "diskio.h"				 // Inclusion de l'interface Disk I/O
-#include <STM32_SD_SPI.h>		 // Inclusion du fichier d'en-tête spécifique à la carte SD via SPI
-#include "ff.h"					 // Inclusion de la bibliothèque FatFs pour MKFS_PARM
+#include "diskio.h"		  // Inclusion de l'interface Disk I/O
+#include <STM32_SD_SPI.h> // Inclusion du fichier d'en-tête spécifique à la carte SD via SPI
+#include "ff.h"
 #include "ffconf.h"				 // Inclusion de la configuration FatFs pour MKFS_PARM
 #include <string.h>				 // Pour memset
 #include "STM32_SD_SPI_config.h" // pour DEBUG_PRINTF
@@ -8,25 +8,6 @@
 static volatile DSTATUS Stat = STA_NOINIT; // Statut du disque, initialisé à "non initialisé"
 static uint8_t CardType;				   // Type de carte SD : 0 pour MMC, 1 pour SDC, 2 pour adressage par bloc
 static uint8_t PowerFlag = 0;			   // Indicateur d'alimentation, initialisé à 0
-static FRESULT mkdirs_recursive(const char *path);
-
-// Fonction utilitaire à placer en haut du fichier (après les includes)
-static void SD_AfficherTailleLisible(uint64_t taille, const char *prefixe)
-{
-	const char *unit = "octets";
-	double val = (double)taille;
-	if (val >= 1024.0 * 1024.0 * 1024.0)
-	{
-		val /= (1024.0 * 1024.0 * 1024.0);
-		unit = "Go";
-	}
-	else if (val >= 1024.0 * 1024.0)
-	{
-		val /= 1024.0;
-		unit = "Ko";
-	}
-	DEBUG_PRINTF("%s%.2f %s\r\n", prefixe ? prefixe : "", val, unit);
-}
 
 /********************************************************************
  ************************* Fonctions SPI ****************************
@@ -633,148 +614,6 @@ DRESULT SD_Demonter(void)
 	return RES_OK;
 }
 
-DRESULT SD_VerifierEtat(void)
-{
-	if (systemeFichiers.fs_type == 0)
-		return RES_ERROR;
-	return RES_OK;
-}
-
-/***************************************
- * Fonctions utilitaires
- ***************************************/
-
-DRESULT SD_LireEspace(uint64_t *espaceTotal, uint64_t *espaceLibre)
-{
-	if (!espaceTotal || !espaceLibre)
-		return RES_PARERR;
-
-	FATFS *ptrSystemeFichiers;
-	DWORD clustersLibres;
-
-	if (f_getfree("", &clustersLibres, &ptrSystemeFichiers) != FR_OK)
-	{
-		DEBUG_PRINTF("Erreur : Impossible de lire l'espace de la carte SD\r\n");
-		return RES_ERROR;
-	}
-
-	*espaceTotal = ((uint64_t)(ptrSystemeFichiers->n_fatent - 2)) * ptrSystemeFichiers->csize * 512;
-	*espaceLibre = ((uint64_t)clustersLibres) * ptrSystemeFichiers->csize * 512;
-
-	DEBUG_PRINTF("Taille secteur : 512 octets\r\n");
-	DEBUG_PRINTF("Clusters : %lu, Cluster size : %lu secteurs\r\n",
-				 (unsigned long)ptrSystemeFichiers->n_fatent,
-				 (unsigned long)ptrSystemeFichiers->csize);
-
-	SD_AfficherTailleLisible(*espaceTotal, "Espace total : ");
-	SD_AfficherTailleLisible(*espaceLibre, "Espace libre : ");
-
-	return RES_OK;
-}
-
-DRESULT SD_VerifierExistence(const char *nomChemin, BYTE *pbExiste)
-{
-	if (!nomChemin || !pbExiste)
-		return RES_PARERR;
-
-	FILINFO infoFichier;
-	FRESULT resultat = f_stat(nomChemin, &infoFichier);
-
-	if (resultat == FR_OK)
-	{
-		*pbExiste = 1;
-		DEBUG_PRINTF("L'élément '%s' existe.\r\n", nomChemin);
-		return RES_OK;
-	}
-	else if (resultat == FR_NO_FILE)
-	{
-		*pbExiste = 0;
-		DEBUG_PRINTF("L'élément '%s' n'existe pas.\r\n", nomChemin);
-		return RES_OK;
-	}
-	else
-	{
-		*pbExiste = 0;
-		DEBUG_PRINTF("Erreur lors de la vérification de l'existence de '%s' (%i)\r\n", nomChemin, resultat);
-		return RES_ERROR;
-	}
-}
-
-DRESULT SD_ObtenirInfos(char *infoBuffer, size_t bufferSize)
-{
-	if (!infoBuffer || bufferSize == 0)
-		return RES_PARERR;
-	snprintf(infoBuffer, bufferSize, "FatFs v%u.%u, Type carte: %u", _FATFS, _FS_RPATH, CardType);
-	return RES_OK; // <-- Corrigé (avant : FR_OK)
-}
-
-DRESULT SD_TesterVitesse(uint32_t *vitesseLecture, uint32_t *vitesseEcriture)
-{
-	if (!vitesseLecture || !vitesseEcriture)
-		return RES_PARERR;
-
-	const char *testFile = "test_speed.bin"; // Chemin relatif à la racine
-	FIL file;
-	UINT ecrit = 0, lu = 0;
-
-#define TEST_BUF_SIZE 4096
-	uint8_t buffer[TEST_BUF_SIZE];
-	uint32_t tailleTest = TEST_BUF_SIZE;
-
-	// Remplir le buffer avec des données connues
-	for (uint32_t i = 0; i < tailleTest; i++)
-		buffer[i] = (uint8_t)i;
-
-	// Test écriture
-	uint32_t start = HAL_GetTick();
-	FRESULT res = f_open(&file, testFile, FA_CREATE_ALWAYS | FA_WRITE);
-	if (res != FR_OK)
-	{
-		DEBUG_PRINTF("Erreur f_open écriture : %d\r\n", res);
-		return RES_ERROR;
-	}
-	res = f_write(&file, buffer, tailleTest, &ecrit);
-	if (res != FR_OK || ecrit != tailleTest)
-	{
-		DEBUG_PRINTF("Erreur f_write : %d, écrit=%u\r\n", res, ecrit);
-		f_close(&file);
-		return RES_ERROR;
-	}
-	f_close(&file);
-	uint32_t end = HAL_GetTick();
-	*vitesseEcriture = (uint32_t)((tailleTest * 1000) / (end - start + 1)); // octets/sec
-
-	// Test lecture
-	start = HAL_GetTick();
-	res = f_open(&file, testFile, FA_READ);
-	if (res != FR_OK)
-	{
-		DEBUG_PRINTF("Erreur f_open lecture : %d\r\n", res);
-		return RES_ERROR;
-	}
-	res = f_read(&file, buffer, tailleTest, &lu);
-	if (res != FR_OK || lu != tailleTest)
-	{
-		DEBUG_PRINTF("Erreur f_read : %d, lu=%u\r\n", res, lu);
-		f_close(&file);
-		return RES_ERROR;
-	}
-	f_close(&file);
-	end = HAL_GetTick();
-	*vitesseLecture = (uint32_t)((tailleTest * 1000) / (end - start + 1)); // octets/sec
-
-	f_unlink(testFile);
-
-	DEBUG_PRINTF("Vitesse écriture : %lu o/s, Vitesse lecture : %lu o/s\r\n", *vitesseEcriture, *vitesseLecture);
-
-	return RES_OK;
-}
-
-/**
- * @brief Formate la carte SD. Attention : Opération destructive !
- * @note Nécessite que _USE_MKFS soit défini à 1 dans ffconf.h.
- * @retval 0 si succès, -1 si échec.
- */
 DRESULT SD_FormaterCarte(void)
 {
 	BYTE work_buffer[512];			// Espace de travail pour f_mkfs
@@ -828,124 +667,81 @@ DRESULT SD_FormaterCarte(void)
 	return 0;
 }
 
-/**
- * Crée récursivement tous les dossiers parents nécessaires pour un chemin donné.
- */
-static FRESULT mkdirs_recursive(const char *path)
+/***************************************
+ * Fonctions utilitaires
+ ***************************************/
+
+DRESULT SD_LireEspace(uint64_t *espaceTotal, uint64_t *espaceLibre)
 {
-	char temp[256];
-	size_t len = strlen(path);
-	if (len >= sizeof(temp))
-		return FR_INVALID_NAME;
-	strcpy(temp, path);
-
-	// Ignore le dernier '/' si présent
-	if (temp[len - 1] == '/' || temp[len - 1] == '\\')
-		temp[len - 1] = 0;
-
-	for (char *p = temp + 1; *p; p++)
-	{
-		if (*p == '/' || *p == '\\')
-		{
-			*p = 0;
-			f_mkdir(temp); // Ignore l'erreur si déjà existant
-			*p = '/';
-		}
-	}
-	// Crée le dossier final
-	return f_mkdir(temp);
-}
-
-/**
- * Détecte si le chemin correspond à un fichier (présence d'une extension).
- */
-static int chemin_est_fichier(const char *chemin)
-{
-	if (!chemin)
-		return 0;
-	const char *dot = strrchr(chemin, '.');
-	// On considère qu'un point après un slash est une extension (fichier)
-	if (dot && dot > strrchr(chemin, '/'))
-		return 1;
-	return 0;
-}
-
-/**
- * Crée un fichier (si extension) ou un dossier (sinon).
- * Pour un dossier, 'contenu' doit être NULL.
- * Pour un fichier, 'contenu' est le texte à écrire (NULL = fichier vide).
- */
-DRESULT SD_Creer(const char *chemin, const char *contenu)
-{
-	if (!chemin)
+	if (!espaceTotal || !espaceLibre)
 		return RES_PARERR;
-	if (chemin_est_fichier(chemin))
+
+	FATFS *ptrSystemeFichiers;
+	DWORD clustersLibres;
+
+	if (f_getfree("", &clustersLibres, &ptrSystemeFichiers) != FR_OK)
 	{
-		// Fichier
-		FIL file;
-		FRESULT res = f_open(&file, chemin, FA_CREATE_ALWAYS | FA_WRITE);
-		if (res != FR_OK)
-		{
-			DEBUG_PRINTF("Erreur : Impossible de créer le fichier '%s' (code %d)\r\n", chemin, res);
-			return RES_ERROR;
-		}
-		if (contenu)
-		{
-			UINT written = 0;
-			res = f_write(&file, contenu, strlen(contenu), &written);
-			if (res != FR_OK || written != strlen(contenu))
-			{
-				f_close(&file);
-				DEBUG_PRINTF("Erreur lors de l'écriture initiale dans '%s' (code %d)\r\n", chemin, res);
-				return RES_ERROR;
-			}
-		}
-		f_close(&file);
-		DEBUG_PRINTF("Fichier '%s' créé avec succès\r\n", chemin);
+		DEBUG_PRINTF("Erreur : Impossible de lire l'espace de la carte SD\r\n");
+		return RES_ERROR;
+	}
+
+	*espaceTotal = ((uint64_t)(ptrSystemeFichiers->n_fatent - 2)) * ptrSystemeFichiers->csize * 512;
+	*espaceLibre = ((uint64_t)clustersLibres) * ptrSystemeFichiers->csize * 512;
+
+	DEBUG_PRINTF("Taille secteur : 512 octets\r\n");
+	DEBUG_PRINTF("Clusters : %lu, Cluster size : %lu secteurs\r\n",
+				 (unsigned long)ptrSystemeFichiers->n_fatent,
+				 (unsigned long)ptrSystemeFichiers->csize);
+
+	SD_AfficherTailleLisible(*espaceTotal, "Espace total : ");
+	SD_AfficherTailleLisible(*espaceLibre, "Espace libre : ");
+
+	return RES_OK;
+}
+
+DRESULT SD_Existe(const char *nomChemin, BYTE *pbExiste)
+{
+	if (!nomChemin || !pbExiste)
+		return RES_PARERR;
+
+	FILINFO infoFichier;
+	FRESULT resultat = f_stat(nomChemin, &infoFichier);
+
+	if (resultat == FR_OK)
+	{
+		*pbExiste = 1;
+		DEBUG_PRINTF("L'élément '%s' existe.\r\n", nomChemin);
+		return RES_OK;
+	}
+	else if (resultat == FR_NO_FILE)
+	{
+		*pbExiste = 0;
+		DEBUG_PRINTF("L'élément '%s' n'existe pas.\r\n", nomChemin);
 		return RES_OK;
 	}
 	else
 	{
-		// Dossier
-		FRESULT res = f_mkdir(chemin);
-		if (res == FR_OK || res == FR_EXIST)
-		{
-			DEBUG_PRINTF("Dossier '%s' créé avec succès\r\n", chemin);
-			return RES_OK;
-		}
-		else
-		{
-			DEBUG_PRINTF("Erreur : Impossible de créer le dossier '%s' (code %d)\r\n", chemin, res);
-			return RES_ERROR;
-		}
+		*pbExiste = 0;
+		DEBUG_PRINTF("Erreur lors de la vérification de l'existence de '%s' (%i)\r\n", nomChemin, resultat);
+		return RES_ERROR;
 	}
 }
 
-/**
- * Supprime un fichier ou un dossier (suppression récursive si dossier non vide).
- */
 DRESULT SD_Supprimer(const char *chemin)
 {
-	if (!chemin)
-		return RES_PARERR;
 	FILINFO info;
 	FRESULT res = f_stat(chemin, &info);
 	if (res != FR_OK)
-	{
-		DEBUG_PRINTF("Erreur : Impossible de trouver '%s' pour suppression (code %d)\r\n", chemin, res);
 		return RES_ERROR;
-	}
+
 	if (info.fattrib & AM_DIR)
 	{
-		// Suppression récursive du dossier
 		DIR dir;
 		FILINFO entry;
 		res = f_opendir(&dir, chemin);
 		if (res != FR_OK)
-		{
-			DEBUG_PRINTF("Erreur : Impossible d'ouvrir le dossier '%s' pour suppression récursive (code %d)\r\n", chemin, res);
 			return RES_ERROR;
-		}
+
 		while (1)
 		{
 			res = f_readdir(&dir, &entry);
@@ -954,157 +750,31 @@ DRESULT SD_Supprimer(const char *chemin)
 			if (strcmp(entry.fname, ".") == 0 || strcmp(entry.fname, "..") == 0)
 				continue;
 			char subpath[256];
-			snprintf(subpath, sizeof(subpath), "%s/%s", chemin, entry.fname);
+			int n = snprintf(subpath, sizeof(subpath), "%s/%s", chemin, entry.fname);
+			if (n < 0 || n >= (int)sizeof(subpath)) // cast pour éviter warning
+			{
+				DEBUG_PRINTF("Chemin trop long, suppression ignorée : ");
+				DEBUG_PRINTF("%s/%s\r\n", chemin, entry.fname);
+				continue;
+			}
 			SD_Supprimer(subpath);
 		}
-		f_closedir(&dir); // <-- Ajouté pour garantir la fermeture du dossier
-	}
-	res = f_unlink(chemin);
-	if (res == FR_OK)
-	{
-		DEBUG_PRINTF("Suppression réussie de '%s'\r\n", chemin);
-		return RES_OK;
-	}
-	else
-	{
-		DEBUG_PRINTF("Erreur lors de la suppression de '%s' (code %d)\r\n", chemin, res);
-		return RES_ERROR;
-	}
-}
-
-/**
- * Copie un fichier ou un dossier (copie récursive pour dossier).
- */
-DRESULT SD_Copier(const char *source, const char *destination)
-{
-	if (!source || !destination)
-		return RES_PARERR;
-	FILINFO info;
-	FRESULT res = f_stat(source, &info);
-	if (res != FR_OK)
-		return RES_ERROR;
-	if (info.fattrib & AM_DIR)
-	{
-		// Créer récursivement le dossier destination et ses parents
-		FRESULT mkres = mkdirs_recursive(destination);
-		if (mkres != FR_OK && mkres != FR_EXIST)
-		{
-			DEBUG_PRINTF("Erreur mkdirs_recursive('%s') : %d\r\n", destination, mkres);
-			return RES_ERROR;
-		}
-
-		// Parcourir le dossier source
-		DIR dir;
-		FILINFO entry;
-		res = f_opendir(&dir, source);
-		if (res != FR_OK)
-		{
-			DEBUG_PRINTF("Erreur f_opendir('%s') : %d\r\n", source, res);
-			return RES_ERROR;
-		}
-		while (1)
-		{
-			res = f_readdir(&dir, &entry);
-			if (res != FR_OK || entry.fname[0] == 0)
-				break;
-			if (strcmp(entry.fname, ".") == 0 || strcmp(entry.fname, "..") == 0)
-				continue;
-			char src_sub[256], dst_sub[256];
-			snprintf(src_sub, sizeof(src_sub), "%s/%s", source, entry.fname);
-			snprintf(dst_sub, sizeof(dst_sub), "%s/%s", destination, entry.fname);
-			DRESULT cres = SD_Copier(src_sub, dst_sub);
-			if (cres != RES_OK)
-			{
-				DEBUG_PRINTF("Erreur lors de la copie de '%s' vers '%s'\r\n", src_sub, dst_sub);
-				// On continue pour tenter de copier le reste, ou on peut faire return RES_ERROR;
-			}
-		}
 		f_closedir(&dir);
-		return RES_OK;
+		res = f_unlink(chemin);
+		return (res == FR_OK) ? RES_OK : RES_ERROR;
 	}
 	else
 	{
-		// Fichier
-		FIL src, dst;
-		res = f_open(&src, source, FA_READ);
-		if (res != FR_OK)
-			return RES_ERROR;
-
-		// Crée les dossiers parents du fichier destination
-		char dst_dir[256];
-		strncpy(dst_dir, destination, sizeof(dst_dir));
-		char *slash = strrchr(dst_dir, '/');
-		if (slash)
-		{
-			*slash = 0;
-			FRESULT mkres = mkdirs_recursive(dst_dir);
-			if (mkres != FR_OK && mkres != FR_EXIST)
-			{
-				DEBUG_PRINTF("Erreur mkdirs_recursive('%s') avant rename : %d\r\n", dst_dir, mkres);
-				return RES_ERROR;
-			}
-		}
-
-		res = f_open(&dst, destination, FA_CREATE_ALWAYS | FA_WRITE);
-		if (res != FR_OK)
-		{
-			f_close(&src);
-			return RES_ERROR;
-		}
-		BYTE buffer[128];
-		UINT br, bw;
-		do
-		{
-			res = f_read(&src, buffer, sizeof(buffer), &br);
-			if (res != FR_OK)
-				break;
-			if (br == 0)
-				break;
-			res = f_write(&dst, buffer, br, &bw);
-			if (res != FR_OK || bw != br)
-				break;
-		} while (br > 0);
-		f_close(&src);
-		f_close(&dst);
+		res = f_unlink(chemin);
 		return (res == FR_OK) ? RES_OK : RES_ERROR;
 	}
 }
 
-/**
- * Déplace ou renomme un fichier ou un dossier.
- */
-DRESULT SD_Deplacer(const char *source, const char *destination)
-{
-	BYTE existe = 0;
-	SD_Existe("test_dir/copied.txt", &existe);
-	if (!existe)
-	{
-		DEBUG_PRINTF("Le fichier source 'test_dir/copied.txt' n'existe pas !\r\n");
-		return RES_ERROR;
-	}
-	FRESULT res = f_rename(source, destination);
-	if (res == FR_OK)
-		return RES_OK;
-	else
-		DEBUG_PRINTF("Erreur f_rename de '%s' vers '%s' (code %d)\r\n", source, destination, res);
-	return RES_ERROR;
-}
-
-/**
- * Vérifie l'existence d'un fichier ou d'un dossier.
- */
-DRESULT SD_Existe(const char *chemin, BYTE *pbExiste)
-{
-	return SD_VerifierExistence(chemin, pbExiste);
-}
-
-/**
- * Liste le contenu d'un dossier (si chemin est un dossier).
- */
 DRESULT SD_Lister(const char *chemin)
 {
 	DIR dir;
 	FILINFO entry;
+
 	FRESULT res = f_opendir(&dir, chemin);
 	if (res != FR_OK)
 	{
@@ -1117,17 +787,20 @@ DRESULT SD_Lister(const char *chemin)
 		res = f_readdir(&dir, &entry);
 		if (res != FR_OK || entry.fname[0] == 0)
 			break;
-		DEBUG_PRINTF(" - %s%s\r\n", entry.fname, (entry.fattrib & AM_DIR) ? "/" : "");
+		DEBUG_PRINTF(" - %s\r\n", entry.fname);
 	}
-	f_closedir(&dir); // <-- Ajouté pour garantir la fermeture du dossier
+	f_closedir(&dir);
 	return RES_OK;
 }
 
-/**
- * Lit un fichier (si chemin est un fichier).
- */
-DRESULT SD_Lire(const char *chemin, char *tampon, size_t tailleTampon)
+DRESULT SD_Lire(const char *chemin, char *tampon, UINT taille)
 {
+	if (!chemin || !tampon || taille == 0)
+	{
+		DEBUG_PRINTF("SD_Lire: argument NULL ou taille nulle\r\n");
+		return RES_PARERR;
+	}
+
 	FIL file;
 	FRESULT res = f_open(&file, chemin, FA_READ);
 	if (res != FR_OK)
@@ -1136,9 +809,9 @@ DRESULT SD_Lire(const char *chemin, char *tampon, size_t tailleTampon)
 		return RES_ERROR;
 	}
 	UINT lu = 0;
-	res = f_read(&file, tampon, tailleTampon - 1, &lu);
+	res = f_read(&file, tampon, taille - 1, &lu); // Correction ici
 	tampon[lu] = 0;
-	f_close(&file); // <-- Toujours fermer le fichier
+	f_close(&file);
 	if (res == FR_OK)
 	{
 		DEBUG_PRINTF("Lecture du fichier '%s' (%lu octets) :\r\n%s\r\n", chemin, (unsigned long)lu, tampon);
@@ -1151,21 +824,34 @@ DRESULT SD_Lire(const char *chemin, char *tampon, size_t tailleTampon)
 	}
 }
 
-/**
- * Écrit dans un fichier (si chemin est un fichier).
- */
-DRESULT SD_Ecrire(const char *chemin, const char *donnees)
+DRESULT SD_Ecrire(const char *chemin, const char *donnees, uint8_t append)
 {
+	if (!chemin || !donnees)
+	{
+		DEBUG_PRINTF("Erreur : chemin ou donnees NULL\r\n");
+		return RES_PARERR;
+	}
+
 	FIL file;
-	FRESULT res = f_open(&file, chemin, FA_WRITE | FA_OPEN_ALWAYS);
+	FRESULT res;
+	UINT ecrit = 0;
+
+	BYTE mode = FA_WRITE;
+	if (append)
+		mode |= FA_OPEN_APPEND;
+	else
+		mode |= FA_CREATE_ALWAYS;
+
+	res = f_open(&file, chemin, mode);
 	if (res != FR_OK)
 	{
 		DEBUG_PRINTF("Erreur : Impossible d'ouvrir le fichier '%s' en écriture (code %d)\r\n", chemin, res);
 		return RES_ERROR;
 	}
-	UINT ecrit = 0;
+
 	res = f_write(&file, donnees, strlen(donnees), &ecrit);
-	f_close(&file); // <-- Toujours fermer le fichier
+	f_close(&file);
+
 	if (res == FR_OK && ecrit == strlen(donnees))
 	{
 		DEBUG_PRINTF("Ecriture réussie dans '%s' (%lu octets)\r\n", chemin, (unsigned long)ecrit);
@@ -1173,7 +859,184 @@ DRESULT SD_Ecrire(const char *chemin, const char *donnees)
 	}
 	else
 	{
-		DEBUG_PRINTF("Erreur lors de l'écriture dans '%s' (code %d)\r\n", chemin, res);
+		DEBUG_PRINTF("Erreur lors de l'écriture dans '%s' (code %d, écrit %lu/%lu)\r\n",
+					 chemin, res, (unsigned long)ecrit, (unsigned long)strlen(donnees));
 		return RES_ERROR;
 	}
+}
+
+DRESULT SD_Renommer(const char *ancienNom, const char *nouveauNom)
+{
+	if (!ancienNom || !nouveauNom)
+		return RES_PARERR;
+	FRESULT res = f_rename(ancienNom, nouveauNom);
+	if (res == FR_OK)
+		return RES_OK;
+	else
+	{
+		DEBUG_PRINTF("Erreur lors du renommage de '%s' en '%s' (code %d)\r\n", ancienNom, nouveauNom, res);
+		return RES_ERROR;
+	}
+}
+
+DRESULT SD_CreerDossier(const char *chemin)
+{
+	if (!chemin)
+		return RES_PARERR;
+	FRESULT res = f_mkdir(chemin);
+	if (res == FR_OK)
+		return RES_OK;
+	else
+	{
+		DEBUG_PRINTF("Erreur lors de la création du dossier '%s' (code %d)\r\n", chemin, res);
+		return RES_ERROR;
+	}
+}
+
+DRESULT SD_TailleFichier(const char *chemin, uint32_t *taille)
+{
+	if (!chemin || !taille)
+		return RES_PARERR;
+	FILINFO info;
+	FRESULT res = f_stat(chemin, &info);
+	if (res == FR_OK)
+	{
+		*taille = info.fsize;
+		DEBUG_PRINTF("Taille du fichier '%s' : %lu octets\r\n", chemin, (unsigned long)*taille);
+		return RES_OK;
+	}
+	else
+	{
+		DEBUG_PRINTF("Erreur lors de la lecture de la taille du fichier '%s' (code %d)\r\n", chemin, res);
+		return RES_ERROR;
+	}
+}
+
+DRESULT SD_ViderFichier(const char *chemin)
+{
+	if (!chemin)
+		return RES_PARERR;
+	FIL file;
+	FRESULT res = f_open(&file, chemin, FA_CREATE_ALWAYS | FA_WRITE);
+	if (res == FR_OK)
+	{
+		f_close(&file);
+		return RES_OK;
+	}
+	else
+	{
+		DEBUG_PRINTF("Erreur lors du vidage du fichier '%s' (code %d)\r\n", chemin, res);
+		return RES_ERROR;
+	}
+}
+
+DRESULT SD_LireLigne(const char *chemin, char *tampon, UINT tailleTampon, UINT numeroLigne)
+{
+	if (!chemin || !tampon || tailleTampon == 0)
+		return RES_PARERR;
+
+	FIL file;
+	FRESULT res = f_open(&file, chemin, FA_READ);
+	if (res != FR_OK)
+	{
+		DEBUG_PRINTF("Erreur : Impossible d'ouvrir le fichier '%s' (code %d)\r\n", chemin, res);
+		return RES_ERROR;
+	}
+
+	UINT ligneActuelle = 0;
+	char *ret = NULL;
+	while (ligneActuelle <= numeroLigne)
+	{
+		ret = f_gets(tampon, tailleTampon, &file);
+		if (!ret)
+			break;
+		if (ligneActuelle == numeroLigne)
+			break;
+		ligneActuelle++;
+	}
+	f_close(&file);
+
+	if (ret)
+	{
+		DEBUG_PRINTF("Ligne %u du fichier '%s' : %s\r\n", numeroLigne, chemin, tampon);
+		return RES_OK;
+	}
+	else
+	{
+		DEBUG_PRINTF("Erreur : Ligne %u introuvable dans '%s'\r\n", numeroLigne, chemin);
+		return RES_ERROR;
+	}
+}
+
+DRESULT SD_Deplacer(const char *chemin_source, const char *chemin_destination)
+{
+	if (!chemin_source || !chemin_destination)
+	{
+		DEBUG_PRINTF("SD_Deplacer: chemin_source ou chemin_destination NULL\r\n");
+		return RES_PARERR;
+	}
+	FRESULT fres = f_rename(chemin_source, chemin_destination);
+	if (fres != FR_OK)
+	{
+		DEBUG_PRINTF("SD_Deplacer: erreur FatFs %d\r\n", fres);
+	}
+	return (fres == FR_OK) ? RES_OK : RES_ERROR;
+}
+
+DRESULT SD_Copier(const char *cheminSource, const char *cheminDestination)
+{
+	if (!cheminSource || !cheminDestination)
+		return RES_PARERR;
+	FIL src, dst;
+	FRESULT fres;
+	UINT lu, ecrit;
+	BYTE tampon[512];
+
+	fres = f_open(&src, cheminSource, FA_READ);
+	if (fres != FR_OK)
+		return RES_ERROR;
+	fres = f_open(&dst, cheminDestination, FA_CREATE_ALWAYS | FA_WRITE);
+	if (fres != FR_OK)
+	{
+		f_close(&src);
+		return RES_ERROR;
+	}
+
+	do
+	{
+		fres = f_read(&src, tampon, sizeof(tampon), &lu);
+		if (fres != FR_OK)
+			break;
+		fres = f_write(&dst, tampon, lu, &ecrit);
+		if (fres != FR_OK || ecrit < lu)
+			break;
+	} while (lu == sizeof(tampon));
+
+	f_close(&src);
+	f_close(&dst);
+	return (fres == FR_OK) ? RES_OK : RES_ERROR;
+}
+
+DRESULT SD_AfficherTailleLisible(uint64_t taille, const char *prefixe)
+{
+	if (!prefixe)
+		prefixe = "";
+	const char *unites[] = {"octets", "Ko", "Mo", "Go", "To"};
+	int i = 0;
+	double tailleLisible = (double)taille;
+	while (tailleLisible >= 1024 && i < 4)
+	{
+		tailleLisible /= 1024;
+		i++;
+	}
+	char tampon[64];
+	snprintf(tampon, sizeof(tampon), "%s%.2f %s\r\n", prefixe, tailleLisible, unites[i]);
+	DEBUG_PRINTF("%s", tampon);
+	return RES_OK;
+}
+
+uint8_t SD_GetCardType(void)
+{
+	extern uint8_t CardType;
+	return CardType; // The static CardType is already in scope
 }
