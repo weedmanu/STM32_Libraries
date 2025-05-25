@@ -7,19 +7,19 @@
 
 #ifndef INC_STM32_WIFIESP_H_
 #define INC_STM32_WIFIESP_H_
-
-#include "stm32l4xx_hal.h"
+#include "main.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Active/désactive les logs du driver
+// ==================== Macros & Config ====================
+
 #define ESP01_DEBUG 1 // Mets à 0 pour désactiver les logs
-
 #define ESP01_DMA_RX_BUF_SIZE 512
-
+extern UART_HandleTypeDef huart2;
+// ==================== Types ====================
 typedef enum
 {
     ESP01_OK = 0,
@@ -33,7 +33,14 @@ typedef enum
     ESP01_WIFI_CONNECT_FAIL
 } ESP01_Status_t;
 
-// Définition de la structure http_request_t
+typedef enum
+{
+    ESP01_WIFI_MODE_STA = 1,
+    ESP01_WIFI_MODE_AP = 2,
+    ESP01_WIFI_MODE_STA_AP = 3
+} ESP01_WifiMode_t;
+
+// Structure pour requête HTTP reçue
 typedef struct
 {
     int conn_id;
@@ -42,12 +49,15 @@ typedef struct
     bool is_http_request;
 } http_request_t;
 
-typedef enum
+typedef void (*esp01_route_callback_t)(int conn_id);
+
+typedef struct
 {
-    ESP01_WIFI_MODE_STA = 1,
-    ESP01_WIFI_MODE_AP = 2,
-    ESP01_WIFI_MODE_STA_AP = 3
-} ESP01_WifiMode_t;
+    const char *path;
+    esp01_route_callback_t callback;
+} esp01_route_t;
+
+// ==================== Fonctions bas niveau (driver) ====================
 
 // Initialisation du driver (appelle aussi la réception DMA)
 ESP01_Status_t esp01_init(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *huart_debug, uint8_t *dma_rx_buf, uint16_t dma_buf_size);
@@ -55,22 +65,50 @@ ESP01_Status_t esp01_init(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *hua
 // Lit les nouvelles données reçues dans le buffer DMA circulaire
 uint16_t esp01_get_new_data(uint8_t *buffer, uint16_t buffer_size);
 
+// ==================== Commandes AT génériques ====================
+
 // Envoi d'une commande AT, réponse dans un buffer dynamique (à free par l'appelant)
 ESP01_Status_t esp01_send_raw_command_dma(const char *cmd, char **response_buffer, uint32_t max_response_size, const char *expected_terminator, uint32_t timeout_ms);
 
-// Envoi d'une commande depuis le terminal série (si vous l'utilisez toujours)
+// Envoi d'une commande depuis le terminal série (si utilisé)
 ESP01_Status_t esp01_terminal_command(UART_HandleTypeDef *huart_terminal, uint32_t max_cmd_size, uint32_t max_resp_size, uint32_t timeout_ms);
 
-// Ajoutez les nouvelles déclarations de fonctions
-bool init_esp01_wifi(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *huart_debug, uint8_t *dma_rx_buf, uint16_t dma_buf_size, const char *ssid, const char *password);
+// ==================== Fonctions haut niveau (WiFi & serveur) ====================
+
+// Initialisation complète ESP01 + WiFi + serveur web
+bool init_esp01_serveur_web(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *huart_debug, uint8_t *dma_rx_buf, uint16_t dma_buf_size, const char *ssid, const char *password);
+
+// Test simple de communication AT
 ESP01_Status_t esp01_test_at(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *huart_debug, uint8_t *dma_rx_buf, uint16_t dma_buf_size);
+
+// Définir le mode WiFi (STA/AP/STA+AP)
 ESP01_Status_t esp01_set_wifi_mode(ESP01_WifiMode_t mode);
+
+// Connexion au réseau WiFi
 ESP01_Status_t esp01_connect_wifi(const char *ssid, const char *password);
+
+// Démarrer le serveur web sur le port donné
 ESP01_Status_t esp01_start_web_server(uint16_t port);
 
+// Récupérer l'adresse IP courante de l'ESP01
+ESP01_Status_t esp01_get_current_ip(char *ip_buf, size_t buf_len);
+
+// ==================== Fonctions HTTP & utilitaires ====================
+
+// Parser l'en-tête +IPD d'une trame reçue
 http_request_t parse_ipd_header(const char *data);
+
+// Ignorer le payload HTTP (lecture et discard)
 void discard_http_payload(int expected_length);
-void handle_http_request(int conn_id, const char *ip_address);
-void try_get_ip_address(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *huart_debug, char *ip_address);
+
+// Répondre à une requête HTTP (envoie la page fournie)
+void handle_http_request(int conn_id, const char *page, size_t page_len);
+
+// Boucle de gestion du serveur web (à appeler dans la boucle principale)
+void esp01_server_page(const char *path, const char *page, size_t page_len);
+void esp01_server_handle(void);
+void extract_http_path(const char *http_data, char *path_buf, size_t buf_size);
+void esp01_add_route(const char *path, esp01_route_callback_t callback);
+void esp01_server_page_with_connid(int conn_id, const char *path, const char *page, size_t page_len);
 
 #endif /* INC_STM32_WIFIESP_H_ */
