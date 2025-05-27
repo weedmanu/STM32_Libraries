@@ -371,8 +371,10 @@ void setup_http_routes(void) {
 ```c
 // Activation du debug (dans STM32_WifiESP.h)
 #define ESP01_DEBUG 1
+```
 
-// Fonction de diagnostic
+```c
+// Fonction de diagnostic dans main.c
 void esp01_diagnostic(void) {
     // Test de communication AT
     ESP01_Status_t status = esp01_test_at(&huart1, &huart2, 
