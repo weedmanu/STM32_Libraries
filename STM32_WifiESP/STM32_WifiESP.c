@@ -34,63 +34,63 @@ static uint16_t g_acc_len = 0;
 // Logge un message sur l'UART debug si activé
 static void _esp_logln(const char *msg)
 {
-    if (ESP01_DEBUG && g_debug_uart && msg)
+    if (ESP01_DEBUG && g_debug_uart && msg) // Si debug activé et UART debug dispo
     {
-        HAL_UART_Transmit(g_debug_uart, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
-        HAL_UART_Transmit(g_debug_uart, (uint8_t *)"\r\n", 2, HAL_MAX_DELAY);
+        HAL_UART_Transmit(g_debug_uart, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY); // Envoie le message
+        HAL_UART_Transmit(g_debug_uart, (uint8_t *)"\r\n", 2, HAL_MAX_DELAY);        // Ajoute retour à la ligne
     }
 }
 
 // Calcule la position actuelle d'écriture du DMA
 static uint16_t _get_dma_write_pos(void)
 {
-    return g_dma_buf_size - __HAL_DMA_GET_COUNTER(g_esp_uart->hdmarx);
+    return g_dma_buf_size - __HAL_DMA_GET_COUNTER(g_esp_uart->hdmarx); // Position d'écriture dans le buffer circulaire
 }
 
 // Calcule le nombre de nouveaux octets disponibles dans le buffer DMA
 static uint16_t _get_available_bytes(void)
 {
-    uint16_t write_pos = _get_dma_write_pos();
+    uint16_t write_pos = _get_dma_write_pos(); // Position actuelle d'écriture
     if (write_pos >= g_rx_last_pos)
-        return write_pos - g_rx_last_pos;
+        return write_pos - g_rx_last_pos; // Cas normal
     else
-        return (g_dma_buf_size - g_rx_last_pos) + write_pos;
+        return (g_dma_buf_size - g_rx_last_pos) + write_pos; // Cas de débordement circulaire
 }
 
 // Accumule les données reçues et cherche un motif (pattern) dans l'accumulateur
 static bool _accumulate_and_search(const char *pattern, uint32_t timeout_ms, bool clear_first)
 {
-    uint32_t start_tick = HAL_GetTick();
+    uint32_t start_tick = HAL_GetTick(); // Début du timeout
     char temp_buf[256];
 
     if (clear_first)
     {
-        g_acc_len = 0;
+        g_acc_len = 0; // Vide l'accumulateur
         g_accumulator[0] = '\0';
     }
 
-    while ((HAL_GetTick() - start_tick) < timeout_ms)
+    while ((HAL_GetTick() - start_tick) < timeout_ms) // Boucle jusqu'au timeout
     {
-        uint16_t new_data = esp01_get_new_data((uint8_t *)temp_buf, sizeof(temp_buf));
+        uint16_t new_data = esp01_get_new_data((uint8_t *)temp_buf, sizeof(temp_buf)); // Récupère les nouveaux octets
         if (new_data > 0)
         {
-            uint16_t space_left = sizeof(g_accumulator) - g_acc_len - 1;
+            uint16_t space_left = sizeof(g_accumulator) - g_acc_len - 1; // Espace restant
             uint16_t to_add = (new_data < space_left) ? new_data : space_left;
             if (to_add > 0)
             {
-                memcpy(&g_accumulator[g_acc_len], temp_buf, to_add);
+                memcpy(&g_accumulator[g_acc_len], temp_buf, to_add); // Ajoute au buffer global
                 g_acc_len += to_add;
                 g_accumulator[g_acc_len] = '\0';
             }
-            if (strstr(g_accumulator, pattern))
+            if (strstr(g_accumulator, pattern)) // Cherche le motif
                 return true;
         }
         else
         {
-            HAL_Delay(10);
+            HAL_Delay(10); // Petite pause si rien de nouveau
         }
     }
-    return false;
+    return false; // Timeout sans trouver le motif
 }
 
 // Vide le buffer RX UART/DMA pendant un certain temps (utilisé pour nettoyer avant une commande AT)
@@ -101,7 +101,7 @@ static void _flush_rx_buffer(uint32_t timeout_ms)
 
     while ((HAL_GetTick() - start_time) < timeout_ms)
     {
-        uint16_t len = esp01_get_new_data((uint8_t *)temp_buf, sizeof(temp_buf));
+        uint16_t len = esp01_get_new_data((uint8_t *)temp_buf, sizeof(temp_buf)); // Vide les nouveaux octets
         if (len == 0)
         {
             HAL_Delay(10);
@@ -124,22 +124,23 @@ static char *_find_next_ipd(char *buffer, int buffer_len)
     char *search_pos = buffer;
     char *ipd_pos;
 
-    while ((ipd_pos = strstr(search_pos, "+IPD,")) != NULL)
+    while ((ipd_pos = strstr(search_pos, "+IPD,")) != NULL) // Recherche "+IPD,"
     {
         // Vérifie la présence du ':' après +IPD
         char *colon = strchr(ipd_pos, ':');
         if (colon && (colon - buffer) < buffer_len - 1)
         {
-            return ipd_pos;
+            return ipd_pos; // Trouvé
         }
         // Continue la recherche après ce +IPD invalide
         search_pos = ipd_pos + IPD_HEADER_MIN_LEN;
     }
-    return NULL;
+    return NULL; // Aucun trouvé
 }
 
 // ==================== Fonctions bas niveau (driver) ====================
 
+// Vide le buffer RX UART/DMA pendant un certain temps (externe)
 void esp01_flush_rx_buffer(uint32_t timeout_ms)
 {
     _flush_rx_buffer(timeout_ms);
@@ -150,12 +151,12 @@ ESP01_Status_t esp01_init(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *hua
                           uint8_t *dma_rx_buf, uint16_t dma_buf_size)
 {
     _esp_logln("Initialisation UART/DMA pour ESP01");
-    g_esp_uart = huart_esp;
-    g_debug_uart = huart_debug;
-    g_dma_rx_buf = dma_rx_buf;
-    g_dma_buf_size = dma_buf_size;
-    g_rx_last_pos = 0;
-    g_acc_len = 0;
+    g_esp_uart = huart_esp;        // UART principal
+    g_debug_uart = huart_debug;    // UART debug
+    g_dma_rx_buf = dma_rx_buf;     // Buffer DMA
+    g_dma_buf_size = dma_buf_size; // Taille buffer
+    g_rx_last_pos = 0;             // Reset position
+    g_acc_len = 0;                 // Reset accumulateur
     g_accumulator[0] = '\0';
 
     if (!g_esp_uart || !g_dma_rx_buf || g_dma_buf_size == 0)
@@ -186,7 +187,7 @@ uint16_t esp01_get_new_data(uint8_t *buffer, uint16_t buffer_size)
         return 0;
     }
 
-    uint16_t available = _get_available_bytes();
+    uint16_t available = _get_available_bytes(); // Octets disponibles
     if (available == 0)
     {
         buffer[0] = '\0';
@@ -225,8 +226,8 @@ uint16_t esp01_get_new_data(uint8_t *buffer, uint16_t buffer_size)
         }
     }
 
-    buffer[copied] = '\0';
-    g_rx_last_pos = (g_rx_last_pos + copied) % g_dma_buf_size;
+    buffer[copied] = '\0';                                     // Ajoute fin de chaîne
+    g_rx_last_pos = (g_rx_last_pos + copied) % g_dma_buf_size; // Met à jour la position
 
     if (copied > 0)
     {
@@ -253,7 +254,7 @@ ESP01_Status_t esp01_send_raw_command_dma(const char *cmd, char **response_buffe
         return ESP01_NOT_INITIALIZED;
     }
 
-    *response_buffer = (char *)calloc(max_response_size, 1);
+    *response_buffer = (char *)calloc(max_response_size, 1); // Alloue le buffer réponse
     if (!*response_buffer)
     {
         _esp_logln("ESP01: Échec allocation mémoire");
@@ -263,9 +264,9 @@ ESP01_Status_t esp01_send_raw_command_dma(const char *cmd, char **response_buffe
     const char *terminator = expected_terminator ? expected_terminator : "OK";
 
     char full_cmd[256];
-    int cmd_len = snprintf(full_cmd, sizeof(full_cmd), "%s\r\n", cmd);
+    int cmd_len = snprintf(full_cmd, sizeof(full_cmd), "%s\r\n", cmd); // Ajoute CRLF
 
-    _flush_rx_buffer(100);
+    _flush_rx_buffer(100); // Vide le buffer RX
 
     // Envoi de la commande AT
     if (HAL_UART_Transmit(g_esp_uart, (uint8_t *)full_cmd, cmd_len, ESP01_TIMEOUT_SHORT) != HAL_OK)
@@ -360,10 +361,10 @@ ESP01_Status_t esp01_terminal_command(UART_HandleTypeDef *huart_terminal, uint32
 ESP01_Status_t esp01_test_at(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *huart_debug, uint8_t *dma_rx_buf, uint16_t dma_buf_size)
 {
     char *response = NULL;
-    ESP01_Status_t status = esp01_init(huart_esp, huart_debug, dma_rx_buf, dma_buf_size);
+    ESP01_Status_t status = esp01_init(huart_esp, huart_debug, dma_rx_buf, dma_buf_size); // Init driver
     if (status != ESP01_OK)
         return status;
-    status = esp01_send_raw_command_dma("AT", &response, 256, "OK", 2000);
+    status = esp01_send_raw_command_dma("AT", &response, 256, "OK", 2000); // Test AT
     if (response)
         free(response);
     return status;
@@ -374,7 +375,7 @@ ESP01_Status_t esp01_set_wifi_mode(ESP01_WifiMode_t mode)
 {
     char *response = NULL;
     char cmd[32];
-    snprintf(cmd, sizeof(cmd), "AT+CWMODE=%d", (int)mode);
+    snprintf(cmd, sizeof(cmd), "AT+CWMODE=%d", (int)mode); // Prépare la commande
     ESP01_Status_t status = esp01_send_raw_command_dma(cmd, &response, 128, "OK", 2000);
     if (response)
         free(response);
@@ -386,7 +387,7 @@ ESP01_Status_t esp01_connect_wifi(const char *ssid, const char *password)
 {
     char *response = NULL;
     char cmd[128];
-    snprintf(cmd, sizeof(cmd), "AT+CWJAP=\"%s\",\"%s\"", ssid, password);
+    snprintf(cmd, sizeof(cmd), "AT+CWJAP=\"%s\",\"%s\"", ssid, password); // Commande de connexion
     ESP01_Status_t status = esp01_send_raw_command_dma(cmd, &response, 512, "WIFI GOT IP", 15000);
     if (response)
         free(response);
@@ -398,7 +399,7 @@ ESP01_Status_t esp01_start_web_server(uint16_t port)
 {
     char *resp = NULL;
     char cmd[32];
-    snprintf(cmd, sizeof(cmd), "AT+CIPSERVER=1,%u", port);
+    snprintf(cmd, sizeof(cmd), "AT+CIPSERVER=1,%u", port); // Commande serveur
     ESP01_Status_t status = esp01_send_raw_command_dma(cmd, &resp, 128, "OK", 3000);
     if (resp)
     {
@@ -419,11 +420,11 @@ http_request_t parse_ipd_header(const char *data)
 {
     http_request_t request = {0};
 
-    char *ipd_start = strstr(data, "+IPD,");
+    char *ipd_start = strstr(data, "+IPD,"); // Cherche "+IPD,"
     if (!ipd_start)
         return request;
 
-    int parsed = sscanf(ipd_start, "+IPD,%d,%d:", &request.conn_id, &request.content_length);
+    int parsed = sscanf(ipd_start, "+IPD,%d,%d:", &request.conn_id, &request.content_length); // Extrait conn_id et taille
 
     if (parsed == 2 && request.conn_id >= 0 && request.content_length >= 0)
     {
@@ -509,9 +510,9 @@ ESP01_Status_t esp01_parse_http_request(const char *raw_request, http_parsed_req
         return ESP01_FAIL;
     }
 
-    memset(parsed, 0, sizeof(http_parsed_request_t));
+    memset(parsed, 0, sizeof(http_parsed_request_t)); // Reset la structure
 
-    char *line_end = strstr(raw_request, "\r\n");
+    char *line_end = strstr(raw_request, "\r\n"); // Fin de la première ligne
     if (!line_end)
     {
         _esp_logln("esp01_parse_http_request: pas de CRLF trouvé");
@@ -641,7 +642,7 @@ ESP01_Status_t esp01_send_http_response(int conn_id, int status_code, const char
 
     st = esp01_wait_for_pattern("SEND OK", ESP01_TIMEOUT_LONG);
     char dbg[128];
-    snprintf(dbg, sizeof(dbg), "Envoi réponse HTTP sur connexion %d, taille %d", conn_id, (int)body_len);
+    snprintf(dbg, sizeof(dbg), "Envoi réponse HTTP sur connexion %d, taille de la page HTML : %d octets", conn_id, (int)body_len);
     _esp_logln(dbg);
     free(response);
     return st;
@@ -1012,4 +1013,51 @@ ESP01_Status_t esp01_get_current_ip(char *ip_buffer, size_t buffer_size)
 
     free(response);
     return ESP01_FAIL;
+}
+
+// Envoie une requête HTTP GET et récupère la réponse
+ESP01_Status_t esp01_http_get(const char *host, uint16_t port, const char *path, char *response, size_t response_size)
+{
+    char cmd[128];
+    snprintf(cmd, sizeof(cmd), "AT+CIPSTART=\"TCP\",\"%s\",%d", host, port); // Ouvre une connexion TCP
+    char *resp = NULL;
+    if (esp01_send_raw_command_dma(cmd, &resp, ESP01_DMA_RX_BUF_SIZE, "OK", 5000) != ESP01_OK)
+    {
+        if (resp)
+            free(resp);
+        return ESP01_FAIL;
+    }
+    if (resp)
+        free(resp);
+
+    char http_req[256];
+    snprintf(http_req, sizeof(http_req),
+             "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host); // Prépare la requête GET
+
+    snprintf(cmd, sizeof(cmd), "AT+CIPSEND=%d", (int)strlen(http_req)); // Prépare l'envoi
+    if (esp01_send_raw_command_dma(cmd, &resp, ESP01_DMA_RX_BUF_SIZE, ">", 3000) != ESP01_OK)
+    {
+        if (resp)
+            free(resp);
+        return ESP01_FAIL;
+    }
+    if (resp)
+        free(resp);
+
+    if (esp01_send_raw_command_dma(http_req, &resp, ESP01_DMA_RX_BUF_SIZE, "CLOSED", 8000) != ESP01_OK)
+    {
+        if (resp)
+            free(resp);
+        return ESP01_FAIL;
+    }
+    // Copie la réponse dans le buffer utilisateur
+    if (resp && response && response_size > 0)
+    {
+        strncpy(response, resp, response_size - 1);
+        response[response_size - 1] = '\0';
+    }
+    if (resp)
+        free(resp);
+
+    return ESP01_OK;
 }

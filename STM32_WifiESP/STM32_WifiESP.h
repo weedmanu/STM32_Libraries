@@ -11,7 +11,7 @@
 // ==================== Macros de configuration ====================
 
 // Active/désactive les logs de debug (1 = actif)
-#define ESP01_DEBUG 0
+#define ESP01_DEBUG 1
 
 // Taille du buffer DMA pour la réception UART
 #define ESP01_DMA_RX_BUF_SIZE 512
@@ -80,6 +80,7 @@ typedef struct
     char path[64];                 // Chemin de la route (ex: "/led")
     esp01_route_handler_t handler; // Fonction à appeler
 } esp01_route_t;
+
 
 // ==================== Fonctions publiques ====================
 
