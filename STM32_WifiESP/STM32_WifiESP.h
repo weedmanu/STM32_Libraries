@@ -13,7 +13,7 @@
 #define ESP01_DEBUG 1
 #define ESP01_DMA_RX_BUF_SIZE 512
 #define ESP01_MAX_ROUTES 8
-
+#define IPD_HEADER_MIN_LEN 5
 // ==================== Types ====================
 
 typedef enum
@@ -103,5 +103,11 @@ esp01_route_handler_t esp01_find_route_handler(const char *path);
 // Autres fonctions
 ESP01_Status_t esp01_wait_for_pattern(const char *pattern, uint32_t timeout_ms);
 ESP01_Status_t esp01_get_current_ip(char *ip_buf, size_t buf_len);
+
+// ==================== Timeouts (en ms) ====================
+#define ESP01_TIMEOUT_SHORT 1000
+#define ESP01_TIMEOUT_MEDIUM 3000
+#define ESP01_TIMEOUT_LONG 5000
+#define ESP01_TIMEOUT_WIFI 15000
 
 #endif /* INC_STM32_WIFIESP_H_ */
