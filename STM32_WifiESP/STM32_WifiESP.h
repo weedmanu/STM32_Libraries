@@ -66,7 +66,7 @@
 #define ESP01_TIMEOUT_MEDIUM 3000		// Timeout moyen
 #define ESP01_TIMEOUT_LONG 5000			// Timeout long
 #define ESP01_TIMEOUT_WIFI 15000		// Timeout pour la connexion WiFi
-#define ESP01_TERMINAL_TIMEOUT_MS 20000 // Timeout pour les commandes du terminal AT
+#define ESP01_TERMINAL_TIMEOUT_MS 30000 // Timeout pour les commandes du terminal AT
 #define ESP01_MULTI_CONNECTION 1		// ou 0 selon ta config
 // ==================== Types et structures ====================
 
@@ -203,7 +203,8 @@ ESP01_Status_t esp01_terminal_command(void);
 
 // --- Fonctions WiFi/Serveur ---
 // Teste la communication avec l'ESP01
-ESP01_Status_t esp01_test_at(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *huart_debug, uint8_t *dma_rx_buf, uint16_t dma_buf_size);
+ESP01_Status_t esp01_test_at(uint8_t *dma_rx_buf, uint16_t dma_buf_size); // <-- point-virgule ici
+
 // Définit le mode WiFi (STA/AP)
 ESP01_Status_t esp01_set_wifi_mode(ESP01_WifiMode_t mode);
 // Connecte au réseau WiFi
@@ -256,4 +257,6 @@ void esp01_reset_statistics(void);
 // Attend un motif dans le flux RX
 ESP01_Status_t esp01_wait_for_pattern(const char *pattern, uint32_t timeout_ms);
 ESP01_Status_t esp01_get_at_version(char *version_buf, size_t buf_size);
+ESP01_Status_t esp01_set_dhcp(uint8_t mode, bool enable);
+
 #endif /* INC_STM32_WIFIESP_H_ */

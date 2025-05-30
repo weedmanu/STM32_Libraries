@@ -296,16 +296,17 @@ ESP01_Status_t esp01_send_raw_command_dma(const char *cmd, char *response_buffer
 	return found ? ESP01_OK : ESP01_TIMEOUT;
 }
 
-// Permet d'envoyer une commande AT depuis un terminal UART (mode interactif)
+// Permet d'envoyer une commande AT depuis un terminal UART (mode interactif, version 2)
 ESP01_Status_t esp01_terminal_command(void)
 {
 	if (!g_terminal_uart)
 		return ESP01_FAIL;
 
-	char cmd_buf[ESP01_DMA_RX_BUF_SIZE] = {0}; // Utilise la macro du driver
+	char cmd_buf[ESP01_DMA_RX_BUF_SIZE] = {0};
 	const char *prompt = "\r\nCommande AT: ";
 	HAL_UART_Transmit(g_terminal_uart, (uint8_t *)prompt, strlen(prompt), HAL_MAX_DELAY);
 
+	// Lecture de la commande AT reçue du PC via UART2
 	uint32_t idx = 0;
 	uint8_t c = 0;
 	while (idx < sizeof(cmd_buf) - 1)
@@ -341,37 +342,89 @@ ESP01_Status_t esp01_terminal_command(void)
 	if (strcmp(cmd_buf, "exit") == 0)
 		return ESP01_EXIT;
 
-	// Utilise la macro pour le timeout
-	uint32_t timeout_ms = ESP01_TERMINAL_TIMEOUT_MS;
+	// Motif attendu selon la commande
+	const char *expected = "OK";
+	if (strncmp(cmd_buf, "AT+CWJAP", 8) == 0)
+		expected = "WIFI GOT IP";
+	else if (strncmp(cmd_buf, "AT+RST", 6) == 0)
+		expected = "ready";
 
-	char resp_buf[ESP01_DMA_RX_BUF_SIZE] = {0};
-	ESP01_Status_t status = esp01_send_raw_command_dma(cmd_buf, resp_buf, sizeof(resp_buf), NULL, timeout_ms);
+	uint32_t timeout = ESP01_TERMINAL_TIMEOUT_MS;
 
-	if (strlen(resp_buf) > 0)
+	printf("HEX: ");
+	for (size_t i = 0; i < strlen(cmd_buf); ++i)
+		printf("%02X ", (unsigned char)cmd_buf[i]);
+	printf("\r\n");
+
+	printf(">> Envoi AT: [%s]\r\n", cmd_buf);
+
+	// Flush RX avant envoi
+	_flush_rx_buffer(100);
+
+	// Envoi de la commande
+	char full_cmd[ESP01_DMA_RX_BUF_SIZE];
+	int cmd_len = snprintf(full_cmd, sizeof(full_cmd), "%s\r\n", cmd_buf);
+	HAL_UART_Transmit(g_esp_uart, (uint8_t *)full_cmd, cmd_len, ESP01_TIMEOUT_SHORT);
+
+	// Lecture brute de la réponse pendant le timeout
+	char response[ESP01_DMA_RX_BUF_SIZE] = {0};
+	uint32_t start = HAL_GetTick();
+	size_t resp_len = 0;
+	while ((HAL_GetTick() - start) < timeout && resp_len < sizeof(response) - 1)
 	{
-		HAL_UART_Transmit(g_terminal_uart, (uint8_t *)resp_buf, strlen(resp_buf), HAL_MAX_DELAY);
+		uint8_t buf[64];
+		uint16_t len = esp01_get_new_data(buf, sizeof(buf));
+		if (len > 0)
+		{
+			if (resp_len + len < sizeof(response) - 1)
+			{
+				memcpy(response + resp_len, buf, len);
+				resp_len += len;
+				response[resp_len] = '\0';
+			}
+			HAL_UART_Transmit(g_terminal_uart, buf, len, HAL_MAX_DELAY);
+		}
+		else
+		{
+			HAL_Delay(10);
+		}
 	}
-	else
-	{
-		char err_msg[64];
-		snprintf(err_msg, sizeof(err_msg), "\r\nPas de réponse (status %d)\r\n", status);
-		HAL_UART_Transmit(g_terminal_uart, (uint8_t *)err_msg, strlen(err_msg), HAL_MAX_DELAY);
-	}
+	response[resp_len] = '\0';
 
-	_esp_logln("Commande AT reçue via terminal");
+	printf("\r\n<< Réponse brute: [%s]\r\n", response);
+
+	// Recherche du motif attendu dans la réponse brute
+	ESP01_Status_t status = ESP01_TIMEOUT;
+	bool is_wifi_cmd = (strncmp(cmd_buf, "AT+CWJAP", 8) == 0);
+
+	if (
+		strstr(response, expected) ||
+		strstr(response, "ready") ||
+		strstr(response, "WIFI CONNECTED") ||
+		strstr(response, "WIFI GOT IP") ||
+		strstr(response, "CONNECTED") ||
+		strstr(response, "JOIN AP"))
+		status = ESP01_OK;
+
+	// Gestion des cas d'échec explicites pour le WiFi
+	if (is_wifi_cmd && (strstr(response, "FAIL") ||
+						strstr(response, "ERROR") ||
+						strstr(response, "WRONG PASSWORD") ||
+						strstr(response, "NO AP") ||
+						strstr(response, "DISCONNECT")))
+		status = ESP01_FAIL;
+
+	printf("Status final: %s\r\n", esp01_get_error_string(status));
 	return status;
 }
 
 // ==================== Fonctions haut niveau (WiFi & serveur) ====================
 
 // Teste la communication AT avec l'ESP01
-ESP01_Status_t esp01_test_at(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *huart_debug, uint8_t *dma_rx_buf, uint16_t dma_buf_size)
+ESP01_Status_t esp01_test_at(uint8_t *dma_rx_buf, uint16_t dma_buf_size)
 {
 	char response[256];
-	ESP01_Status_t status = esp01_init(huart_esp, huart_debug, dma_rx_buf, dma_buf_size); // Init driver
-	if (status != ESP01_OK)
-		return status;
-	status = esp01_send_raw_command_dma("AT", response, sizeof(response), "OK", 2000); // Test AT
+	ESP01_Status_t status = esp01_send_raw_command_dma("AT", response, sizeof(response), "OK", 2000); // Test AT
 	return status;
 }
 
@@ -1331,4 +1384,20 @@ ESP01_Status_t esp01_get_at_version(char *version_buf, size_t buf_size)
 	version_buf[len] = '\0';
 
 	return ESP01_OK;
+}
+
+/**
+ * Active ou désactive le DHCP sur l'ESP01.
+ * @param mode 1 = STA, 2 = AP
+ * @param enable true pour activer, false pour désactiver
+ * @return ESP01_Status_t
+ */
+ESP01_Status_t esp01_set_dhcp(uint8_t mode, bool enable)
+{
+	char cmd[32];
+	char resp[ESP01_DMA_RX_BUF_SIZE];
+	snprintf(cmd, sizeof(cmd), "AT+CWDHCP=%d,%d", mode, enable ? 1 : 0);
+	ESP01_Status_t status = esp01_send_raw_command_dma(cmd, resp, sizeof(resp), "OK", ESP01_TERMINAL_TIMEOUT_MS);
+	_esp_logln(resp);
+	return status;
 }
