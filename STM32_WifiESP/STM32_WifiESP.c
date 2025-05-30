@@ -22,7 +22,7 @@ connection_info_t g_connections[ESP01_MAX_CONNECTIONS] = {0};
 int g_connection_count = 0;
 uint16_t g_server_port = 80;
 // ==================== Variables globales internes ====================
-
+static UART_HandleTypeDef *g_terminal_uart = NULL;
 // Tableau des routes HTTP enregistrées
 static esp01_route_t g_routes[ESP01_MAX_ROUTES];
 // Nombre de routes actuellement enregistrées
@@ -178,6 +178,7 @@ ESP01_Status_t esp01_init(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *hua
 	_esp_logln("Initialisation UART/DMA pour ESP01");
 	g_esp_uart = huart_esp;		   // UART principal
 	g_debug_uart = huart_debug;	   // UART debug
+	g_terminal_uart = huart_debug; // UART terminal = UART debug (pour le mode terminal AT)
 	g_dma_rx_buf = dma_rx_buf;	   // Buffer DMA
 	g_dma_buf_size = dma_buf_size; // Taille buffer
 	g_rx_last_pos = 0;			   // Reset position
@@ -278,7 +279,7 @@ ESP01_Status_t esp01_send_raw_command_dma(const char *cmd, char *response_buffer
 
 	const char *terminator = expected_terminator ? expected_terminator : "OK";
 
-	char full_cmd[256];
+	char full_cmd[ESP01_DMA_RX_BUF_SIZE];
 	int cmd_len = snprintf(full_cmd, sizeof(full_cmd), "%s\r\n", cmd);
 
 	_flush_rx_buffer(100);
@@ -296,22 +297,20 @@ ESP01_Status_t esp01_send_raw_command_dma(const char *cmd, char *response_buffer
 }
 
 // Permet d'envoyer une commande AT depuis un terminal UART (mode interactif)
-ESP01_Status_t esp01_terminal_command(UART_HandleTypeDef *huart_terminal, uint32_t max_cmd_size,
-									  uint32_t max_resp_size, uint32_t timeout_ms)
+ESP01_Status_t esp01_terminal_command(void)
 {
-	if (!huart_terminal)
+	if (!g_terminal_uart)
 		return ESP01_FAIL;
 
-	char cmd_buf[128] = {0};
-
+	char cmd_buf[ESP01_DMA_RX_BUF_SIZE] = {0}; // Utilise la macro du driver
 	const char *prompt = "\r\nCommande AT: ";
-	HAL_UART_Transmit(huart_terminal, (uint8_t *)prompt, strlen(prompt), HAL_MAX_DELAY);
+	HAL_UART_Transmit(g_terminal_uart, (uint8_t *)prompt, strlen(prompt), HAL_MAX_DELAY);
 
 	uint32_t idx = 0;
 	uint8_t c = 0;
 	while (idx < sizeof(cmd_buf) - 1)
 	{
-		if (HAL_UART_Receive(huart_terminal, &c, 1, HAL_MAX_DELAY) == HAL_OK)
+		if (HAL_UART_Receive(g_terminal_uart, &c, 1, HAL_MAX_DELAY) == HAL_OK)
 		{
 			if (c == '\r' || c == '\n')
 			{
@@ -324,39 +323,39 @@ ESP01_Status_t esp01_terminal_command(UART_HandleTypeDef *huart_terminal, uint32
 				if (idx > 0)
 				{
 					idx--;
-					HAL_UART_Transmit(huart_terminal, (uint8_t *)"\b \b", 3, HAL_MAX_DELAY);
+					HAL_UART_Transmit(g_terminal_uart, (uint8_t *)"\b \b", 3, HAL_MAX_DELAY);
 				}
 			}
 			else if (c >= 0x20 && c <= 0x7E)
 			{
 				cmd_buf[idx++] = c;
-				HAL_UART_Transmit(huart_terminal, &c, 1, HAL_MAX_DELAY);
+				HAL_UART_Transmit(g_terminal_uart, &c, 1, HAL_MAX_DELAY);
 			}
 		}
 	}
 	cmd_buf[idx] = '\0';
-	HAL_UART_Transmit(huart_terminal, (uint8_t *)"\r\n", 2, HAL_MAX_DELAY);
+	HAL_UART_Transmit(g_terminal_uart, (uint8_t *)"\r\n", 2, HAL_MAX_DELAY);
 
 	if (strlen(cmd_buf) == 0)
 		return ESP01_OK;
 	if (strcmp(cmd_buf, "exit") == 0)
-		return ESP01_FAIL;
+		return ESP01_EXIT;
 
-	char resp_buf[512] = {0}; // ou max_resp_size si besoin
+	// Utilise la macro pour le timeout
+	uint32_t timeout_ms = ESP01_TERMINAL_TIMEOUT_MS;
+
+	char resp_buf[ESP01_DMA_RX_BUF_SIZE] = {0};
 	ESP01_Status_t status = esp01_send_raw_command_dma(cmd_buf, resp_buf, sizeof(resp_buf), NULL, timeout_ms);
 
 	if (strlen(resp_buf) > 0)
 	{
-		char status_msg[64];
-		snprintf(status_msg, sizeof(status_msg), "\r\nRéponse (status %d):\r\n", status);
-		HAL_UART_Transmit(huart_terminal, (uint8_t *)status_msg, strlen(status_msg), HAL_MAX_DELAY);
-		HAL_UART_Transmit(huart_terminal, (uint8_t *)resp_buf, strlen(resp_buf), HAL_MAX_DELAY);
+		HAL_UART_Transmit(g_terminal_uart, (uint8_t *)resp_buf, strlen(resp_buf), HAL_MAX_DELAY);
 	}
 	else
 	{
 		char err_msg[64];
 		snprintf(err_msg, sizeof(err_msg), "\r\nPas de réponse (status %d)\r\n", status);
-		HAL_UART_Transmit(huart_terminal, (uint8_t *)err_msg, strlen(err_msg), HAL_MAX_DELAY);
+		HAL_UART_Transmit(g_terminal_uart, (uint8_t *)err_msg, strlen(err_msg), HAL_MAX_DELAY);
 	}
 
 	_esp_logln("Commande AT reçue via terminal");
@@ -379,8 +378,8 @@ ESP01_Status_t esp01_test_at(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *
 // Définit le mode WiFi de l'ESP01 (STA, AP, ou les deux)
 ESP01_Status_t esp01_set_wifi_mode(ESP01_WifiMode_t mode)
 {
-	char response[128];
-	char cmd[32];
+	char response[ESP01_DMA_RX_BUF_SIZE];
+	char cmd[ESP01_DMA_RX_BUF_SIZE];
 	snprintf(cmd, sizeof(cmd), "AT+CWMODE=%d", (int)mode);
 	ESP01_Status_t status = esp01_send_raw_command_dma(cmd, response, sizeof(response), "OK", 2000);
 	return status;
@@ -393,7 +392,7 @@ ESP01_Status_t esp01_connect_wifi(const char *ssid, const char *password)
 	VALIDATE_PARAM(password && strlen(password) >= 8, ESP01_FAIL); // WPA2 minimum
 
 	char response[512];
-	char cmd[128];
+	char cmd[ESP01_DMA_RX_BUF_SIZE];
 	snprintf(cmd, sizeof(cmd), "AT+CWJAP=\"%s\",\"%s\"", ssid, password); // Commande de connexion
 	ESP01_Status_t status = esp01_send_raw_command_dma(cmd, response, sizeof(response), "WIFI GOT IP", 15000);
 	return status;
@@ -409,8 +408,8 @@ ESP01_Status_t esp01_connect_wifi_config(
 	const char *netmask)
 {
 	ESP01_Status_t status;
-	char cmd[128];
-	char resp[128];
+	char cmd[ESP01_DMA_RX_BUF_SIZE];
+	char resp[ESP01_DMA_RX_BUF_SIZE];
 
 	_esp_logln("[WIFI] === Début configuration WiFi ===");
 
@@ -515,8 +514,8 @@ ESP01_Status_t esp01_start_web_server(uint16_t port)
 {
 	VALIDATE_PARAM(port > 0, ESP01_FAIL);
 
-	char resp[128];
-	char cmd[32];
+	char resp[ESP01_DMA_RX_BUF_SIZE];
+	char cmd[ESP01_DMA_RX_BUF_SIZE];
 	snprintf(cmd, sizeof(cmd), "AT+CIPSERVER=1,%u", port);
 	ESP01_Status_t status = esp01_send_raw_command_dma(cmd, resp, sizeof(resp), "OK", 3000);
 	if (strstr(resp, "OK") || strstr(resp, "no change"))
@@ -530,8 +529,8 @@ ESP01_Status_t esp01_start_server_config(
 {
 	g_server_port = port;
 	ESP01_Status_t status;
-	char resp[128];
-	char cmd[32];
+	char resp[ESP01_DMA_RX_BUF_SIZE];
+	char cmd[ESP01_DMA_RX_BUF_SIZE];
 
 	// 1. Configure le mode multi-connexion
 	snprintf(cmd, sizeof(cmd), "AT+CIPMUX=%d", multi_conn ? 1 : 0);
@@ -1203,7 +1202,7 @@ ESP01_Status_t esp01_http_get(const char *host, uint16_t port, const char *path,
 	snprintf(dbg, sizeof(dbg), "esp01_http_get: GET http://%s:%u%s", host, port, path);
 	_esp_logln(dbg);
 
-	char cmd[128];
+	char cmd[ESP01_DMA_RX_BUF_SIZE];
 	snprintf(cmd, sizeof(cmd), "AT+CIPSTART=\"TCP\",\"%s\",%d", host, port);
 	char resp[ESP01_DMA_RX_BUF_SIZE];
 	if (esp01_send_raw_command_dma(cmd, resp, sizeof(resp), "OK", 5000) != ESP01_OK)
@@ -1298,4 +1297,38 @@ const char *esp01_get_error_string(ESP01_Status_t status)
 	default:
 		return "Code d'erreur inconnu";
 	}
+}
+
+ESP01_Status_t esp01_get_at_version(char *version_buf, size_t buf_size)
+{
+	if (!version_buf || buf_size == 0)
+		return ESP01_FAIL;
+
+	char response[ESP01_DMA_RX_BUF_SIZE] = {0};
+	ESP01_Status_t status = esp01_send_raw_command_dma("AT+GMR", response, sizeof(response), "OK", ESP01_TIMEOUT_SHORT);
+
+	if (status != ESP01_OK)
+	{
+		version_buf[0] = '\0';
+		return ESP01_FAIL;
+	}
+
+	// Cherche la première ligne non vide après la commande
+	char *start = strstr(response, "AT version:");
+	if (!start)
+		start = strstr(response, "SDK version:");
+	if (!start)
+		start = response;
+
+	// Copie la première ligne trouvée
+	char *end = strchr(start, '\r');
+	if (!end)
+		end = strchr(start, '\n');
+	size_t len = end ? (size_t)(end - start) : strlen(start);
+	if (len >= buf_size)
+		len = buf_size - 1;
+	strncpy(version_buf, start, len);
+	version_buf[len] = '\0';
+
+	return ESP01_OK;
 }

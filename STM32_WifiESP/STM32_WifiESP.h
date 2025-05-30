@@ -62,28 +62,30 @@
 
 // ==================== Timeouts (en ms) ====================
 
-#define ESP01_TIMEOUT_SHORT 1000  // Timeout court générique
-#define ESP01_TIMEOUT_MEDIUM 3000 // Timeout moyen
-#define ESP01_TIMEOUT_LONG 5000	  // Timeout long
-#define ESP01_TIMEOUT_WIFI 15000  // Timeout pour la connexion WiFi
-
+#define ESP01_TIMEOUT_SHORT 1000		// Timeout court générique
+#define ESP01_TIMEOUT_MEDIUM 3000		// Timeout moyen
+#define ESP01_TIMEOUT_LONG 5000			// Timeout long
+#define ESP01_TIMEOUT_WIFI 15000		// Timeout pour la connexion WiFi
+#define ESP01_TERMINAL_TIMEOUT_MS 20000 // Timeout pour les commandes du terminal AT
+#define ESP01_MULTI_CONNECTION 1		// ou 0 selon ta config
 // ==================== Types et structures ====================
 
 // --- Statuts de retour ---
 // Codes de retour pour les fonctions du driver ESP01
 typedef enum
 {
-	ESP01_OK = 0,				   // Succès
-	ESP01_FAIL = -1,			   // Échec général
-	ESP01_TIMEOUT = -2,			   // Opération expirée (timeout)
-	ESP01_NOT_INITIALIZED = -3,	   // Driver non initialisé
-	ESP01_INVALID_PARAM = -4,	   // Paramètre invalide
-	ESP01_BUFFER_OVERFLOW = -5,	   // Débordement de buffer
-	ESP01_WIFI_NOT_CONNECTED = -6, // Non connecté au WiFi
-	ESP01_HTTP_PARSE_ERROR = -7,   // Erreur de parsing HTTP
-	ESP01_ROUTE_NOT_FOUND = -8,	   // Route HTTP non trouvée
-	ESP01_CONNECTION_ERROR = -9,   // Erreur de connexion TCP
-	ESP01_MEMORY_ERROR = -10	   // Erreur d'allocation mémoire
+	ESP01_OK = 0,
+	ESP01_FAIL = -1,
+	ESP01_TIMEOUT = -2,
+	ESP01_NOT_INITIALIZED = -3,
+	ESP01_INVALID_PARAM = -4,
+	ESP01_BUFFER_OVERFLOW = -5,
+	ESP01_WIFI_NOT_CONNECTED = -6,
+	ESP01_HTTP_PARSE_ERROR = -7,
+	ESP01_ROUTE_NOT_FOUND = -8,
+	ESP01_CONNECTION_ERROR = -9,
+	ESP01_MEMORY_ERROR = -10,
+	ESP01_EXIT = -100 // <-- Ajoute ce code spécial pour "exit"
 } ESP01_Status_t;
 
 // --- Modes WiFi ---
@@ -119,6 +121,7 @@ typedef struct
 	bool is_active;					  // Indique si la connexion est active (true/false)
 	char client_ip[ESP01_MAX_IP_LEN]; // Adresse IP du client
 	uint16_t server_port;			  // Port du serveur (pour les connexions entrantes)
+	uint16_t client_port;			  // Port du client (pour les connexions sortantes)
 } connection_info_t;
 
 extern esp01_stats_t g_stats; // Statistiques globales accessibles partout
@@ -196,8 +199,7 @@ ESP01_Status_t esp01_send_raw_command_dma(const char *cmd, char *response_buffer
 										  const char *expected_terminator,
 										  uint32_t timeout_ms);
 // Terminal interactif pour envoyer des commandes AT
-ESP01_Status_t esp01_terminal_command(UART_HandleTypeDef *huart_terminal, uint32_t max_cmd_size,
-									  uint32_t max_resp_size, uint32_t timeout_ms);
+ESP01_Status_t esp01_terminal_command(void);
 
 // --- Fonctions WiFi/Serveur ---
 // Teste la communication avec l'ESP01
@@ -253,5 +255,5 @@ void esp01_reset_statistics(void);
 // --- Divers ---
 // Attend un motif dans le flux RX
 ESP01_Status_t esp01_wait_for_pattern(const char *pattern, uint32_t timeout_ms);
-
+ESP01_Status_t esp01_get_at_version(char *version_buf, size_t buf_size);
 #endif /* INC_STM32_WIFIESP_H_ */
