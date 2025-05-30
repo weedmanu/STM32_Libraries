@@ -22,12 +22,12 @@ Le projet utilise **deux UART** pour la communication :
 ### Exemple de configuration CubeMX
 
 - **UART1**
-  - Baudrate : 115200 (ou celui du firmware ESP01)
+  - Baudrate : 115200
   - Mode : TX/RX
-  - DMA RX : activé (pour la réception efficace des trames AT)
+  - DMA RX : activé en mode Circulaire (pour la réception efficace des trames AT)
 - **UART2**
-  - Baudrate : 115200 (ou selon votre adaptateur USB-série)
-  - Mode : TX uniquement (ou TX/RX si besoin)
+  - Baudrate : 115200
+  - Mode : TX/RX
 
 
 ---
