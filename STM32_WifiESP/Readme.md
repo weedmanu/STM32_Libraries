@@ -12,6 +12,24 @@ Il permet de contrôler une LED, d'afficher des informations système, de tester
 - Statistiques serveur et informations système/réseau
 - Code modulaire, facilement extensible
 
+## Configuration des UART
+
+Le projet utilise **deux UART** pour la communication :
+
+- **UART1** : communication entre la STM32 et le module WiFi ESP01 (AT commands).
+- **UART2** : console série pour le debug (redirection de `printf`).
+
+### Exemple de configuration CubeMX
+
+- **UART1**
+  - Baudrate : 115200 (ou celui du firmware ESP01)
+  - Mode : TX/RX
+  - DMA RX : activé (pour la réception efficace des trames AT)
+- **UART2**
+  - Baudrate : 115200 (ou selon votre adaptateur USB-série)
+  - Mode : TX uniquement (ou TX/RX si besoin)
+
+
 ---
 
 ## Extraits de code utilisateur (`USER CODE`)
@@ -520,36 +538,6 @@ while (1)
 - **Utilisez les sections `USER CODE`** pour intégrer vos propres fonctionnalités sans perdre vos modifications lors des régénérations CubeMX.
 - **Exploitez la modularité du code** pour ajouter de nouveaux périphériques ou pages web dynamiques.
 
-## Configuration des UART
-
-Le projet utilise **deux UART** pour la communication :
-
-- **UART1** : communication entre la STM32 et le module WiFi ESP01 (AT commands).
-- **UART2** : console série pour le debug (redirection de `printf`).
-
-### Exemple de configuration CubeMX
-
-- **UART1**
-  - Baudrate : 115200 (ou celui du firmware ESP01)
-  - Mode : TX/RX
-  - DMA RX : activé (pour la réception efficace des trames AT)
-- **UART2**
-  - Baudrate : 115200 (ou selon votre adaptateur USB-série)
-  - Mode : TX uniquement (ou TX/RX si besoin)
-
-### Exemple d’utilisation dans le code
-
-```c
-// Initialisation du driver ESP01 avec les UART configurés
-status = esp01_init(&huart1, &huart2, esp01_dma_rx_buf, ESP01_DMA_RX_BUF_SIZE);
-
-// Redirection de printf vers UART2
-int __io_putchar(int ch)
-{
-    HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
-    return ch;
-}
-```
 
 
 
