@@ -42,7 +42,9 @@ Le projet utilise **deux UART** pour la communication :
 #include "STM32_WifiESP.h" // Inclusion du fichier d'en-tête pour le driver ESP01
 /* USER CODE END Includes */
 ````
-### Defines 
+### Defines
+
+> ⚠️ **Attention** : Pensez à remplacer `"XXXXX"` par vos véritables identifiants WiFi (`SSID` et `PASSWORD`) dans le code avant de flasher la carte, sinon la connexion au réseau ne fonctionnera pas !
 
 ````c
 /* USER CODE BEGIN PD */
