@@ -529,8 +529,9 @@ static void page_device(int conn_id, const http_parsed_request_t *request)
 // === Boucle serveur web ===
 while (1)
 {
-    esp01_process_requests();
-    HAL_Delay(10);
+		esp01_process_requests();			  // Traite les requêtes HTTP entrantes
+		esp01_cleanup_inactive_connections(); // Nettoyage automatique des connexions inactives
+		HAL_Delay(10);
 }
 /* USER CODE END WHILE */
 ````
