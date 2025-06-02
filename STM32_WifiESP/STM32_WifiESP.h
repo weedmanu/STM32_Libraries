@@ -32,7 +32,7 @@
 
 // ==================== DÉFINITIONS & MACROS ====================
 
-#define ESP01_DEBUG 1
+#define ESP01_DEBUG 0
 #define ESP01_DMA_RX_BUF_SIZE 512
 #define ESP01_MAX_ROUTES 8
 #define ESP01_MAX_CONNECTIONS 5
@@ -122,6 +122,7 @@ typedef struct
 	char method[ESP01_MAX_HTTP_METHOD_LEN];
 	char path[ESP01_MAX_HTTP_PATH_LEN];
 	char query_string[ESP01_MAX_HTTP_QUERY_LEN];
+	char headers_buf[512]; // <-- Ajout pour stocker les headers HTTP bruts
 	bool is_valid;
 } http_parsed_request_t;
 
@@ -133,16 +134,28 @@ typedef struct
 	esp01_route_handler_t handler;
 } esp01_route_t;
 
+typedef struct
+{
+	const char *key;
+	size_t key_len;
+	const char *value;
+	size_t value_len;
+} http_header_kv_t;
+
+// ==================== VARIABLES GLOBALES ====================
+
 extern esp01_stats_t g_stats;
 extern connection_info_t g_connections[ESP01_MAX_CONNECTIONS];
 extern int g_connection_count;
 extern uint16_t g_server_port;
 
-// ==================== FONCTIONS BAS NIVEAU (DRIVER) ====================
+/******************** FONCTIONS HAUT NIVEAU ********************/
+// ==================== DRIVER ====================
 
-ESP01_Status_t esp01_init(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *huart_debug,
-						  uint8_t *dma_rx_buf, uint16_t dma_buf_size);
-uint16_t esp01_get_new_data(uint8_t *buffer, uint16_t buffer_size);
+ESP01_Status_t
+esp01_init(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *huart_debug,
+		   uint8_t *dma_rx_buf, uint16_t dma_buf_size);
+
 ESP01_Status_t esp01_flush_rx_buffer(uint32_t timeout_ms);
 
 // ==================== COMMANDES AT GÉNÉRIQUES ====================
@@ -151,10 +164,8 @@ ESP01_Status_t esp01_send_raw_command_dma(const char *cmd, char *response_buffer
 										  uint32_t max_response_size,
 										  const char *expected_terminator,
 										  uint32_t timeout_ms);
-ESP01_Status_t esp01_test_at(uint8_t *dma_rx_buf, uint16_t dma_buf_size);
-ESP01_Status_t esp01_get_at_version(char *version_buf, size_t buf_size);
 
-// ==================== FONCTIONS HAUT NIVEAU (WIFI & SERVEUR) ====================
+// ==================== WIFI & SERVEUR ====================
 
 ESP01_Status_t esp01_connect_wifi_config(
 	ESP01_WifiMode_t mode,
@@ -169,7 +180,8 @@ ESP01_Status_t esp01_start_server_config(
 	bool multi_conn,
 	uint16_t port);
 
-ESP01_Status_t esp01_start_web_server(uint16_t port);
+ESP01_Status_t esp01_test_at(uint8_t *dma_rx_buf, uint16_t dma_buf_size);
+ESP01_Status_t esp01_get_at_version(char *version_buf, size_t buf_size);
 ESP01_Status_t esp01_stop_web_server(void);
 ESP01_Status_t esp01_get_connection_status(void);
 ESP01_Status_t esp01_get_current_ip(char *ip_buf, size_t buf_len);
@@ -189,9 +201,9 @@ ESP01_Status_t esp01_send_http_response(int conn_id, int status_code, const char
 ESP01_Status_t esp01_send_json_response(int conn_id, const char *json_data);
 ESP01_Status_t esp01_send_404_response(int conn_id);
 void esp01_process_requests(void);
-void esp01_get_statistics(esp01_stats_t *stats);
-void esp01_reset_statistics(void);
 const char *esp01_get_error_string(ESP01_Status_t status);
 ESP01_Status_t esp01_http_get(const char *host, uint16_t port, const char *path, char *response, size_t response_size);
+ESP01_Status_t parse_http_headers(const char *headers_start, void (*on_header)(http_header_kv_t *header, void *user), void *user);
+int esp01_get_active_connection_count(void);
 
 #endif /* INC_STM32_WIFIESP_H_ */

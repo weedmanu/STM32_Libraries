@@ -20,6 +20,8 @@
 	} while (0)
 #endif
 
+#define ESP01_CONN_TIMEOUT_MS 30000 // 30 secondes d'inactivité
+
 // ==================== VARIABLES GLOBALES ====================
 
 esp01_stats_t g_stats = {0};
@@ -64,8 +66,6 @@ static parse_state_t g_parse_state = PARSE_STATE_SEARCHING_IPD;
 // Fonctions internes utilisées par le driver ESP01
 /***************************************************************/
 
-// ==================== FONCTIONS INTERNES ====================
-
 // Logge un message sur l'UART debug si activé
 static void _esp_logln(const char *msg)
 {
@@ -90,6 +90,68 @@ static uint16_t _get_available_bytes(void)
 		return write_pos - g_rx_last_pos; // Cas normal
 	else
 		return (g_dma_buf_size - g_rx_last_pos) + write_pos; // Cas de débordement circulaire
+}
+
+// Récupère les nouveaux octets reçus via DMA UART
+static uint16_t esp01_get_new_data(uint8_t *buffer, uint16_t buffer_size)
+{
+	if (!g_esp_uart || !g_dma_rx_buf || !buffer || buffer_size == 0)
+	{
+		if (buffer && buffer_size > 0)
+			buffer[0] = '\0';
+		return 0;
+	}
+
+	uint16_t available = _get_available_bytes(); // Octets disponibles
+	if (available == 0)
+	{
+		buffer[0] = '\0';
+		return 0;
+	}
+
+	uint16_t to_copy = (available < buffer_size - 1) ? available : buffer_size - 1;
+	uint16_t copied = 0;
+	uint16_t write_pos = _get_dma_write_pos();
+
+	// Cas où les données ne sont pas fragmentées dans le buffer circulaire
+	if (write_pos > g_rx_last_pos)
+	{
+		memcpy(buffer, &g_dma_rx_buf[g_rx_last_pos], to_copy);
+		copied = to_copy;
+	}
+	else
+	{
+		// Cas où les données sont fragmentées (fin du buffer)
+		uint16_t first_chunk = g_dma_buf_size - g_rx_last_pos;
+		if (first_chunk >= to_copy)
+		{
+			memcpy(buffer, &g_dma_rx_buf[g_rx_last_pos], to_copy);
+			copied = to_copy;
+		}
+		else
+		{
+			memcpy(buffer, &g_dma_rx_buf[g_rx_last_pos], first_chunk);
+			copied = first_chunk;
+			uint16_t remaining = to_copy - first_chunk;
+			if (remaining > 0)
+			{
+				memcpy(buffer + first_chunk, &g_dma_rx_buf[0], remaining);
+				copied += remaining;
+			}
+		}
+	}
+
+	buffer[copied] = '\0';									   // Ajoute fin de chaîne
+	g_rx_last_pos = (g_rx_last_pos + copied) % g_dma_buf_size; // Met à jour la position
+
+	if (copied > 0)
+	{
+		char dbg[64];
+		snprintf(dbg, sizeof(dbg), "[GET NEW DATA]  %u octets reçus", copied);
+		_esp_logln(dbg);
+	}
+
+	return copied;
 }
 
 // Accumule les données reçues et cherche un motif (pattern) dans l'accumulateur
@@ -277,8 +339,34 @@ static ESP01_Status_t esp01_wait_for_pattern(const char *pattern, uint32_t timeo
 	return ESP01_TIMEOUT;
 }
 
-// ==================== FONCTIONS BAS NIVEAU (DRIVER) ====================
+static void esp01_cleanup_inactive_connections(void)
+{
+	uint32_t now = HAL_GetTick();
+	for (int i = 0; i < g_connection_count; ++i)
+	{
+		if (g_connections[i].is_active && (now - g_connections[i].last_activity > ESP01_CONN_TIMEOUT_MS))
+		{
+			// Ferme la connexion côté ESP01
+			char cmd[32];
+			snprintf(cmd, sizeof(cmd), "AT+CIPCLOSE=%d", g_connections[i].conn_id);
+			char resp[64];
+			esp01_send_raw_command_dma(cmd, resp, sizeof(resp), "OK", 2000);
 
+			g_connections[i].is_active = false;
+			g_connections[i].conn_id = -1;
+			g_connections[i].client_ip[0] = '\0';
+			g_connections[i].server_port = 0;
+			g_connections[i].client_port = 0;
+			_esp_logln("[CONN] Connexion fermée pour inactivité");
+		}
+	}
+}
+
+/***************************************************************/
+// Fonctions utilisateur pour le driver ESP01
+/***************************************************************/
+
+// ==================== DRIVER ====================
 // Vide le buffer RX UART/DMA pendant un certain temps (externe)
 ESP01_Status_t esp01_flush_rx_buffer(uint32_t timeout_ms)
 {
@@ -319,68 +407,6 @@ ESP01_Status_t esp01_init(UART_HandleTypeDef *huart_esp, UART_HandleTypeDef *hua
 	return ESP01_OK;
 }
 
-// Récupère les nouveaux octets reçus via DMA UART
-uint16_t esp01_get_new_data(uint8_t *buffer, uint16_t buffer_size)
-{
-	if (!g_esp_uart || !g_dma_rx_buf || !buffer || buffer_size == 0)
-	{
-		if (buffer && buffer_size > 0)
-			buffer[0] = '\0';
-		return 0;
-	}
-
-	uint16_t available = _get_available_bytes(); // Octets disponibles
-	if (available == 0)
-	{
-		buffer[0] = '\0';
-		return 0;
-	}
-
-	uint16_t to_copy = (available < buffer_size - 1) ? available : buffer_size - 1;
-	uint16_t copied = 0;
-	uint16_t write_pos = _get_dma_write_pos();
-
-	// Cas où les données ne sont pas fragmentées dans le buffer circulaire
-	if (write_pos > g_rx_last_pos)
-	{
-		memcpy(buffer, &g_dma_rx_buf[g_rx_last_pos], to_copy);
-		copied = to_copy;
-	}
-	else
-	{
-		// Cas où les données sont fragmentées (fin du buffer)
-		uint16_t first_chunk = g_dma_buf_size - g_rx_last_pos;
-		if (first_chunk >= to_copy)
-		{
-			memcpy(buffer, &g_dma_rx_buf[g_rx_last_pos], to_copy);
-			copied = to_copy;
-		}
-		else
-		{
-			memcpy(buffer, &g_dma_rx_buf[g_rx_last_pos], first_chunk);
-			copied = first_chunk;
-			uint16_t remaining = to_copy - first_chunk;
-			if (remaining > 0)
-			{
-				memcpy(buffer + first_chunk, &g_dma_rx_buf[0], remaining);
-				copied += remaining;
-			}
-		}
-	}
-
-	buffer[copied] = '\0';									   // Ajoute fin de chaîne
-	g_rx_last_pos = (g_rx_last_pos + copied) % g_dma_buf_size; // Met à jour la position
-
-	if (copied > 0)
-	{
-		char dbg[64];
-		snprintf(dbg, sizeof(dbg), "[GET NEW DATA]  %u octets reçus", copied);
-		_esp_logln(dbg);
-	}
-
-	return copied;
-}
-
 // ==================== COMMANDES AT GÉNÉRIQUES ====================// ==================== Commandes AT génériques ====================
 
 // Envoie une commande AT et récupère la réponse (DMA, timeout, etc.)
@@ -411,7 +437,7 @@ ESP01_Status_t esp01_send_raw_command_dma(const char *cmd, char *response_buffer
 	return found ? ESP01_OK : ESP01_TIMEOUT;
 }
 
-// ==================== FONCTIONS HAUT NIVEAU (WIFI & SERVEUR) ====================
+// ==================== FONCTIONS WIFI & SERVEUR ====================
 
 ESP01_Status_t esp01_connect_wifi_config(
 	ESP01_WifiMode_t mode,
@@ -561,65 +587,57 @@ ESP01_Status_t esp01_parse_http_request(const char *raw_request, http_parsed_req
 	VALIDATE_PARAM(raw_request, ESP01_FAIL);
 	VALIDATE_PARAM(parsed, ESP01_FAIL);
 
-	memset(parsed, 0, sizeof(http_parsed_request_t)); // Reset la structure
+	memset(parsed, 0, sizeof(http_parsed_request_t));
 
-	// Cherche la fin de la première ligne
-	const char *line_end = strstr(raw_request, "\r\n");
+	// Machine à états pour parser la première ligne HTTP
+	const char *p = raw_request;
+	const char *method_start = p, *method_end = NULL;
+	const char *path_start = NULL, *path_end = NULL;
+	const char *query_start = NULL, *query_end = NULL;
+	const char *line_end = strstr(p, "\r\n");
 	if (!line_end)
-	{
-		_esp_logln("[HTTP] esp01_parse_http_request: pas de CRLF trouvé");
 		return ESP01_FAIL;
-	}
 
-	// Copie la première ligne dans un buffer temporaire
-	size_t first_line_len = line_end - raw_request;
-	if (first_line_len >= sizeof(parsed->method) + sizeof(parsed->path) + 20)
-	{
-		_esp_logln("[HTTP] esp01_parse_http_request: première ligne trop longue");
+	// État 1 : méthode
+	while (p < line_end && *p != ' ')
+		p++;
+	method_end = p;
+	if (method_end - method_start >= ESP01_MAX_HTTP_METHOD_LEN)
 		return ESP01_FAIL;
-	}
-	char first_line[256];
-	strncpy(first_line, raw_request, first_line_len);
-	first_line[first_line_len] = '\0';
+	memcpy(parsed->method, method_start, method_end - method_start);
+	parsed->method[method_end - method_start] = '\0';
 
-	// Utilise sscanf pour extraire méthode, chemin et version
-	int n = sscanf(first_line, "%7s %63s", parsed->method, parsed->path);
-	if (n < 2)
-	{
-		_esp_logln("[HTTP] esp01_parse_http_request: sscanf parsing échoué");
+	// État 2 : chemin
+	p++; // skip space
+	path_start = p;
+	while (p < line_end && *p != ' ' && *p != '?')
+		p++;
+	path_end = p;
+	if (path_end - path_start >= ESP01_MAX_HTTP_PATH_LEN)
 		return ESP01_FAIL;
-	}
+	memcpy(parsed->path, path_start, path_end - path_start);
+	parsed->path[path_end - path_start] = '\0';
 
-	// Gère la query string si présente
-	char *query_start = strchr(parsed->path, '?');
-	if (query_start)
+	// État 3 : query string (optionnel)
+	if (*p == '?')
 	{
-		*query_start = '\0';
-		query_start++;
-		strncpy(parsed->query_string, query_start, sizeof(parsed->query_string) - 1);
-		parsed->query_string[sizeof(parsed->query_string) - 1] = '\0';
+		p++;
+		query_start = p;
+		while (p < line_end && *p != ' ')
+			p++;
+		query_end = p;
+		size_t qlen = query_end - query_start;
+		if (qlen >= ESP01_MAX_HTTP_QUERY_LEN)
+			qlen = ESP01_MAX_HTTP_QUERY_LEN - 1;
+		memcpy(parsed->query_string, query_start, qlen);
+		parsed->query_string[qlen] = '\0';
 	}
-
-	const char *valid_methods[] = {"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"};
-	bool method_ok = false;
-	for (size_t i = 0; i < sizeof(valid_methods) / sizeof(valid_methods[0]); ++i)
+	else
 	{
-		if (strcmp(parsed->method, valid_methods[i]) == 0)
-		{
-			method_ok = true;
-			break;
-		}
-	}
-	if (!method_ok)
-	{
-		_esp_logln("[HTTP] esp01_parse_http_request: méthode HTTP inconnue");
-		return ESP01_FAIL;
+		parsed->query_string[0] = '\0';
 	}
 
 	parsed->is_valid = true;
-	char dbg[128];
-	snprintf(dbg, sizeof(dbg), "[HTTP] Requête HTTP parsée : méthode=%s, path=%s", parsed->method, parsed->path);
-	_esp_logln(dbg);
 	return ESP01_OK;
 }
 
@@ -914,6 +932,7 @@ void esp01_process_requests(void)
 
 			// === AJOUT POUR COPIER L'IP DU CLIENT DANS g_connections ===
 			int idx = -1;
+			// Cherche une connexion existante
 			for (int i = 0; i < g_connection_count; ++i)
 			{
 				if (g_connections[i].conn_id == req.conn_id)
@@ -922,6 +941,20 @@ void esp01_process_requests(void)
 					break;
 				}
 			}
+			// Sinon, cherche un slot inactif à réutiliser
+			if (idx == -1)
+			{
+				for (int i = 0; i < g_connection_count; ++i)
+				{
+					if (!g_connections[i].is_active)
+					{
+						idx = i;
+						g_connections[idx].conn_id = req.conn_id;
+						break;
+					}
+				}
+			}
+			// Sinon, ajoute un nouveau slot si possible
 			if (idx == -1 && g_connection_count < ESP01_MAX_CONNECTIONS)
 			{
 				idx = g_connection_count++;
@@ -948,7 +981,7 @@ void esp01_process_requests(void)
 				}
 				g_connections[idx].server_port = req.client_port > 0 ? req.client_port : 80;
 				char dbg[64];
-				snprintf(dbg, sizeof(dbg), "[DEBUG] Port serveur : %u", g_connections[idx].server_port);
+				snprintf(dbg, sizeof(dbg), "[DEBUG] Port client : %u", g_connections[idx].server_port);
 				_esp_logln(dbg);
 			}
 			// === FIN AJOUT DEBUG ===
@@ -957,6 +990,36 @@ void esp01_process_requests(void)
 			http_parsed_request_t parsed = {0};
 			if (esp01_parse_http_request(colon_pos, &parsed) == ESP01_OK && parsed.is_valid)
 			{
+				// --- Ajout : Parsing des headers HTTP ---
+				const char *first_line_end = strstr(colon_pos, "\r\n");
+				if (first_line_end)
+				{
+					const char *headers_start = first_line_end + 2;
+					const char *headers_end = strstr(headers_start, "\r\n\r\n");
+					if (headers_end)
+					{
+						size_t headers_len = headers_end - headers_start;
+						if (headers_len < sizeof(parsed.headers_buf))
+						{
+							memcpy(parsed.headers_buf, headers_start, headers_len);
+							parsed.headers_buf[headers_len] = '\0';
+						}
+						else
+						{
+							parsed.headers_buf[0] = '\0';
+						}
+					}
+					else
+					{
+						parsed.headers_buf[0] = '\0';
+					}
+				}
+				else
+				{
+					parsed.headers_buf[0] = '\0';
+				}
+				// --- Fin ajout ---
+
 				esp01_route_handler_t handler = esp01_find_route_handler(parsed.path);
 				if (handler)
 				{
@@ -1011,6 +1074,8 @@ void esp01_process_requests(void)
 	}
 
 	g_processing_request = false;
+	// Nettoyage automatique des connexions inactives
+	esp01_cleanup_inactive_connections();
 }
 
 // ==================== ROUTAGE HTTP ====================
@@ -1214,4 +1279,53 @@ ESP01_Status_t esp01_get_at_version(char *version_buf, size_t buf_size)
 	version_buf[len] = '\0';
 
 	return ESP01_OK;
+}
+
+// Parse les headers HTTP (après la première ligne), callback appelé pour chaque header trouvé
+ESP01_Status_t parse_http_headers(const char *headers_start, void (*on_header)(http_header_kv_t *header, void *user), void *user)
+{
+	const char *p = headers_start;
+	while (*p && !(p[0] == '\r' && p[1] == '\n'))
+	{
+		// Trouve la fin de la ligne
+		const char *line_end = strstr(p, "\r\n");
+		if (!line_end)
+			break;
+
+		// Trouve le séparateur ':'
+		const char *colon = strchr(p, ':');
+		if (colon && colon < line_end)
+		{
+			// Ignore les espaces après ':'
+			const char *val_start = colon + 1;
+			while (*val_start == ' ' && val_start < line_end)
+				val_start++;
+
+			http_header_kv_t header;
+			header.key = p;
+			header.key_len = colon - p;
+			header.value = val_start;
+			header.value_len = line_end - val_start;
+
+			if (on_header)
+				on_header(&header, user);
+		}
+		p = line_end + 2; // Passe à la ligne suivante
+	}
+	return ESP01_OK;
+}
+
+// ==================== GESTION DES CONNEXIONS INACTIVES ====================
+
+#define ESP01_CONN_TIMEOUT_MS 30000 // 30 secondes d'inactivité
+
+int esp01_get_active_connection_count(void)
+{
+	int count = 0;
+	for (int i = 0; i < g_connection_count; ++i)
+	{
+		if (g_connections[i].is_active)
+			count++;
+	}
+	return count;
 }
