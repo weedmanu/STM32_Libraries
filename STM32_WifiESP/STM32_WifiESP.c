@@ -149,7 +149,7 @@ static uint16_t esp01_get_new_data(uint8_t *buffer, uint16_t buffer_size)
 
 	if (copied > 0)
 	{
-		char dbg[64];
+		char dbg[ESP01_MAX_DBG_BUF];
 		snprintf(dbg, sizeof(dbg), "[GET NEW DATA]  %u octets reçus", copied); // Message de debug
 		_esp_logln(dbg);
 	}
@@ -167,7 +167,7 @@ static uint16_t esp01_get_new_data(uint8_t *buffer, uint16_t buffer_size)
 static bool _accumulate_and_search(const char *pattern, uint32_t timeout_ms, bool clear_first)
 {
 	uint32_t start_tick = HAL_GetTick(); // Début du timeout
-	char temp_buf[256];					 // Buffer temporaire pour les nouveaux octets
+	char temp_buf[ESP01_TMP_BUF_SIZE];	 // Buffer temporaire pour les nouveaux octets
 
 	if (clear_first) // Si on doit vider l'accumulateur
 	{
@@ -205,8 +205,8 @@ static bool _accumulate_and_search(const char *pattern, uint32_t timeout_ms, boo
  */
 static void _flush_rx_buffer(uint32_t timeout_ms)
 {
-	char temp_buf[ESP01_DMA_RX_BUF_SIZE]; // Buffer temporaire pour vider les octets
-	uint32_t start_time = HAL_GetTick();  // Début du timeout
+	char temp_buf[ESP01_TMP_BUF_SIZE];	 // Buffer temporaire pour vider les octets
+	uint32_t start_time = HAL_GetTick(); // Début du timeout
 
 	while ((HAL_GetTick() - start_time) < timeout_ms) // Boucle jusqu'à la fin du timeout
 	{
@@ -278,7 +278,7 @@ static http_request_t parse_ipd_header(const char *data)
 	{
 		request.is_valid = true; // Marque la structure comme valide
 		request.has_ip = true;	 // Indique que l'IP est présente
-		char dbg[80];
+		char dbg[ESP01_MAX_DBG_BUF];
 		snprintf(dbg, sizeof(dbg),
 				 "[PARSE] parse_ipd_header: IPD avec IP %s:%d, conn_id=%d, len=%d",
 				 request.client_ip, request.client_port, request.conn_id, request.content_length); // Prépare un message de debug
@@ -294,7 +294,7 @@ static http_request_t parse_ipd_header(const char *data)
 		{
 			request.is_valid = true; // Marque la structure comme valide
 			request.has_ip = false;	 // Indique que l'IP n'est pas présente
-			char dbg[80];
+			char dbg[ESP01_MAX_DBG_BUF];
 			snprintf(dbg, sizeof(dbg),
 					 "[PARSE] parse_ipd_header: IPD sans IP, conn_id=%d, len=%d",
 					 request.conn_id, request.content_length); // Prépare un message de debug
@@ -314,7 +314,7 @@ static http_request_t parse_ipd_header(const char *data)
  */
 static void discard_http_payload(int expected_length)
 {
-	char discard_buf[256];							  // Buffer temporaire pour lire et ignorer les données
+	char discard_buf[ESP01_TMP_BUF_SIZE];			  // Buffer temporaire pour lire et ignorer les données
 	int remaining = expected_length;				  // Nombre d'octets restant à ignorer
 	uint32_t timeout_start = HAL_GetTick();			  // Timestamp de début pour le timeout
 	const uint32_t timeout_ms = ESP01_TIMEOUT_MEDIUM; // Timeout maximum pour l'opération
@@ -329,7 +329,7 @@ static void discard_http_payload(int expected_length)
 		if (read_len > 0) // Si des octets ont été lus
 		{
 			remaining -= read_len; // Décrémente le nombre d'octets restant à ignorer
-			char debug_msg[50];
+			char debug_msg[ESP01_MAX_DBG_BUF];
 			snprintf(debug_msg, sizeof(debug_msg), "[HTTP] Ignoré %d octets, reste %d", read_len, remaining); // Message de debug
 			_esp_logln(debug_msg);																			  // Affiche le message de debug
 		}
@@ -341,7 +341,7 @@ static void discard_http_payload(int expected_length)
 
 	if (remaining > 0) // Si tous les octets n'ont pas pu être ignorés avant le timeout
 	{
-		char warn_msg[100];
+		char warn_msg[ESP01_MAX_WARN_MSG];
 		snprintf(warn_msg, sizeof(warn_msg), "[HTTP] AVERTISSEMENT: %d octets non lus", remaining); // Message d'avertissement
 		_esp_logln(warn_msg);																		// Affiche l'avertissement
 	}
@@ -358,7 +358,7 @@ static void discard_http_payload(int expected_length)
  */
 static ESP01_Status_t esp01_set_wifi_mode(ESP01_WifiMode_t mode)
 {
-	char cmd[32], resp[64];														// Buffers pour la commande AT et la réponse
+	char cmd[ESP01_MAX_CMD_BUF], resp[ESP01_MAX_CMD_BUF * 2];					// Buffers pour la commande AT et la réponse
 	snprintf(cmd, sizeof(cmd), "AT+CWMODE=%d", mode);							// Prépare la commande AT pour définir le mode WiFi
 	ESP01_Status_t status = esp01_send_raw_command_dma(cmd, resp, sizeof(resp), // Envoie la commande AT et attend "OK"
 													   "OK", ESP01_TIMEOUT_SHORT);
@@ -373,7 +373,7 @@ static ESP01_Status_t esp01_set_wifi_mode(ESP01_WifiMode_t mode)
  */
 static ESP01_Status_t esp01_connect_wifi(const char *ssid, const char *password)
 {
-	char cmd[128], resp[128];											  // Buffers pour la commande AT et la réponse
+	char cmd[ESP01_MAX_CMD_BUF], resp[ESP01_MAX_CMD_BUF * 2];			  // Buffers pour la commande AT et la réponse
 	snprintf(cmd, sizeof(cmd), "AT+CWJAP=\"%s\",\"%s\"", ssid, password); // Prépare la commande AT pour rejoindre le réseau WiFi
 	ESP01_Status_t status = esp01_send_raw_command_dma(					  // Envoie la commande AT et attend la réponse
 		cmd,															  // Commande AT à envoyer
@@ -730,10 +730,10 @@ ESP01_Status_t esp01_send_http_response(int conn_id, int status_code, const char
 	VALIDATE_PARAM(status_code >= 100 && status_code < 600, ESP01_FAIL); // Vérifie que le code HTTP est valide
 	VALIDATE_PARAM(body || body_len == 0, ESP01_FAIL);					 // Vérifie que le body est non NULL si body_len > 0
 
-	uint32_t start = HAL_GetTick();				 // Sauvegarde le temps de début
-	g_stats.total_requests++;					 // Incrémente le nombre total de requêtes
-	g_stats.response_count++;					 // Incrémente le nombre de réponses
-	if (status_code >= 200 && status_code < 300) // Si code 2xx
+	uint32_t start = HAL_GetTick();								// Sauvegarde le temps de début
+	g_stats.total_requests++;									// Incrémente le nombre total de requêtes
+	g_stats.response_count++;									// Incrémente le nombre de réponses
+	if (status_code >= ESP01_HTTP_OK_CODE && status_code < 300) // Si code 2xx
 	{
 		g_stats.successful_responses++; // Incrémente les réponses réussies
 	}
@@ -742,17 +742,17 @@ ESP01_Status_t esp01_send_http_response(int conn_id, int status_code, const char
 		g_stats.failed_responses++; // Incrémente les réponses échouées
 	}
 
-	char header[256];				// Buffer pour l'entête HTTP
-	const char *status_text = "OK"; // Texte du statut HTTP
-	switch (status_code)			// Sélectionne le texte selon le code
+	char header[ESP01_MAX_HEADER_LINE]; // Buffer pour l'entête HTTP
+	const char *status_text = "OK";		// Texte du statut HTTP
+	switch (status_code)				// Sélectionne le texte selon le code
 	{
-	case 200:
+	case ESP01_HTTP_OK_CODE:
 		status_text = "OK"; // 200 -> OK
 		break;
-	case 404:
+	case ESP01_HTTP_NOT_FOUND_CODE:
 		status_text = "Not Found"; // 404 -> Not Found
 		break;
-	case 500:
+	case ESP01_HTTP_INTERNAL_ERR_CODE:
 		status_text = "Internal Server Error"; // 500 -> Internal Server Error
 		break;
 	default:
@@ -769,7 +769,7 @@ ESP01_Status_t esp01_send_http_response(int conn_id, int status_code, const char
 							  status_code, status_text, content_type ? content_type : "text/html", (int)body_len);
 
 	// Utilise un buffer fixe de 2048 octets pour la réponse HTTP
-	char response[2048];							 // Buffer pour la réponse complète
+	char response[ESP01_MAX_TOTAL_HTTP];			 // Buffer pour la réponse complète
 	if ((header_len + body_len) >= sizeof(response)) // Vérifie la taille totale
 	{
 		_esp_logln("[HTTP] esp01_send_http_response: réponse trop grande"); // Log si trop grand
@@ -782,10 +782,10 @@ ESP01_Status_t esp01_send_http_response(int conn_id, int status_code, const char
 
 	int total_len = header_len + (int)body_len; // Calcule la taille totale
 
-	char cipsend_cmd[32];																// Buffer pour la commande AT+CIPSEND
+	char cipsend_cmd[ESP01_MAX_CIPSEND_BUF];											// Buffer pour la commande AT+CIPSEND
 	snprintf(cipsend_cmd, sizeof(cipsend_cmd), "AT+CIPSEND=%d,%d", conn_id, total_len); // Prépare la commande
 
-	char resp[64];																							  // Buffer pour la réponse AT
+	char resp[ESP01_CMD_RESP_BUF_SIZE];																		  // Buffer pour la réponse AT
 	ESP01_Status_t st = esp01_send_raw_command_dma(cipsend_cmd, resp, sizeof(resp), ">", ESP01_TIMEOUT_LONG); // Envoie AT+CIPSEND
 	if (st != ESP01_OK)																						  // Si échec
 	{
@@ -796,7 +796,7 @@ ESP01_Status_t esp01_send_http_response(int conn_id, int status_code, const char
 	HAL_UART_Transmit(g_esp_uart, (uint8_t *)response, total_len, HAL_MAX_DELAY); // Envoie la réponse HTTP
 
 	st = esp01_wait_for_pattern("SEND OK", ESP01_TIMEOUT_LONG); // Attend la confirmation d'envoi
-	char dbg[128];												// Buffer debug
+	char dbg[ESP01_SMALL_BUF_SIZE];								// Buffer debug
 	snprintf(dbg, sizeof(dbg), "[HTTP] Envoi réponse HTTP sur connexion %d, taille de la page HTML : %d octets", conn_id, (int)body_len);
 	_esp_logln(dbg); // Log debug
 
@@ -828,7 +828,7 @@ ESP01_Status_t esp01_send_json_response(int conn_id, const char *json_data)
 ESP01_Status_t esp01_send_404_response(int conn_id)
 {
 	_esp_logln("[HTTP] Envoi d'une réponse 404");									// Log debug
-	const char *body = "<html><body><h1>404 - Page Not Found</h1></body></html>";	// Corps HTML 404
+	const char *body = ESP01_HTTP_404_BODY;											// Corps HTML 404
 	return esp01_send_http_response(conn_id, 404, "text/html", body, strlen(body)); // Envoie la réponse 404
 }
 
@@ -839,7 +839,7 @@ ESP01_Status_t esp01_send_404_response(int conn_id)
 ESP01_Status_t esp01_get_connection_status(void)
 {
 	_esp_logln("[STATUS] Vérification du statut de connexion ESP01");															// Log debug
-	char response[512];																											// Buffer pour la réponse AT
+	char response[ESP01_DMA_RX_BUF_SIZE];																						// Buffer pour la réponse AT
 	ESP01_Status_t status = esp01_send_raw_command_dma("AT+CIPSTATUS", response, sizeof(response), "OK", ESP01_TIMEOUT_MEDIUM); // Envoie AT+CIPSTATUS
 
 	if (status == ESP01_OK) // Si succès
@@ -861,7 +861,7 @@ ESP01_Status_t esp01_get_connection_status(void)
 ESP01_Status_t esp01_stop_web_server(void)
 {
 	_esp_logln("[STATUS] Arrêt du serveur web ESP01");																			  // Log arrêt serveur
-	char response[256];																											  // Buffer pour la réponse AT
+	char response[ESP01_DMA_RX_BUF_SIZE];																						  // Buffer pour la réponse AT
 	ESP01_Status_t status = esp01_send_raw_command_dma("AT+CIPSERVER=0", response, sizeof(response), "OK", ESP01_TIMEOUT_MEDIUM); // Envoie la commande AT pour arrêter le serveur
 	return status;																												  // Retourne le statut
 }
@@ -878,13 +878,13 @@ ESP01_Status_t esp01_print_connection_status(void)
 		return ESP01_NOT_INITIALIZED;											 // Retourne erreur
 	}
 
-	const char *header = "\r\n=== STATUS ESP01 ===\r\n";							   // Entête pour affichage
+	const char *header = "=== STATUS ESP01 ===\r\n";								   // Entête pour affichage
 	HAL_UART_Transmit(g_debug_uart, (uint8_t *)header, strlen(header), HAL_MAX_DELAY); // Affiche l'entête
 
-	char response[256];																				  // Buffer pour la réponse AT
+	char response[ESP01_DMA_RX_BUF_SIZE];															  // Buffer pour la réponse AT
 	ESP01_Status_t status = esp01_send_raw_command_dma("AT", response, sizeof(response), "OK", 2000); // Test AT
 
-	char msg[128];																		 // Buffer pour messages
+	char msg[ESP01_MAX_DBG_BUF];														 // Buffer pour messages
 	snprintf(msg, sizeof(msg), "Test AT: %s\r\n", (status == ESP01_OK) ? "OK" : "FAIL"); // Prépare le message de test AT
 	HAL_UART_Transmit(g_debug_uart, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);		 // Affiche le résultat du test AT
 
@@ -905,7 +905,7 @@ ESP01_Status_t esp01_print_connection_status(void)
 		HAL_UART_Transmit(g_debug_uart, (uint8_t *)"WiFi: Status inconnu\r\n", 22, HAL_MAX_DELAY); // Affiche statut inconnu
 	}
 
-	char ip[32];										  // Buffer pour l'IP
+	char ip[ESP01_IP_BUF_SIZE];							  // Buffer pour l'IP
 	if (esp01_get_current_ip(ip, sizeof(ip)) == ESP01_OK) // Récupère l'IP courante
 	{
 		snprintf(msg, sizeof(msg), "IP: %s\r\n", ip);								 // Prépare le message IP
@@ -1057,9 +1057,9 @@ void esp01_process_requests(void)
 			// Sinon, ajoute un nouveau slot si possible
 			if (idx == -1 && g_connection_count < ESP01_MAX_CONNECTIONS) // Si pas trouvé et place dispo
 			{
-				idx = g_connection_count++;														 // Nouvel index
-				g_connections[idx].conn_id = req.conn_id;										 // Associe l'ID
-				char dbg[64];																	 // Buffer debug
+				idx = g_connection_count++;				  // Nouvel index
+				g_connections[idx].conn_id = req.conn_id; // Associe l'ID
+				char dbg[ESP01_MAX_DBG_BUF];
 				snprintf(dbg, sizeof(dbg), "[DEBUG] Nouvelle connexion TCP id=%d", req.conn_id); // Message debug
 				_esp_logln(dbg);																 // Log debug
 			}
@@ -1069,8 +1069,8 @@ void esp01_process_requests(void)
 				g_connections[idx].is_active = true;			  // Marque comme actif
 				if (req.has_ip)									  // Si l'IP est connue
 				{
-					strncpy(g_connections[idx].client_ip, req.client_ip, ESP01_MAX_IP_LEN);		  // Copie l'IP client
-					char dbg[64];																  // Buffer debug
+					strncpy(g_connections[idx].client_ip, req.client_ip, ESP01_MAX_IP_LEN); // Copie l'IP client
+					char dbg[ESP01_MAX_DBG_BUF];
 					snprintf(dbg, sizeof(dbg), "[DEBUG] IP client détectée : %s", req.client_ip); // Message debug
 					_esp_logln(dbg);															  // Log debug
 				}
@@ -1080,7 +1080,7 @@ void esp01_process_requests(void)
 					_esp_logln("[DEBUG] IP client non transmise par l'ESP01"); // Log debug
 				}
 				g_connections[idx].server_port = req.client_port > 0 ? req.client_port : 80;			// Met à jour le port
-				char dbg[64];																			// Buffer debug
+				char dbg[ESP01_MAX_DBG_BUF];															// Buffer debug
 				snprintf(dbg, sizeof(dbg), "[DEBUG] Port client : %u", g_connections[idx].server_port); // Message debug
 				_esp_logln(dbg);																		// Log debug
 			}
@@ -1128,7 +1128,7 @@ void esp01_process_requests(void)
 				else
 				{
 					// Réponse 204 No Content pour /favicon.ico
-					if (strcmp(parsed.path, "/favicon.ico") == 0) // Si favicon
+					if (strcmp(parsed.path, ESP01_HTTP_FAVICON_PATH) == 0) // Si favicon
 					{
 						esp01_send_http_response(req.conn_id, 204, "image/x-icon", NULL, 0); // Réponse 204
 					}
@@ -1199,11 +1199,11 @@ ESP01_Status_t esp01_add_route(const char *path, esp01_route_handler_t handler)
 	VALIDATE_PARAM(handler, ESP01_FAIL);						  // Vérifie que le handler n'est pas NULL
 	VALIDATE_PARAM(g_route_count < ESP01_MAX_ROUTES, ESP01_FAIL); // Vérifie qu'il reste de la place pour une nouvelle route
 
-	strncpy(g_routes[g_route_count].path, path, sizeof(g_routes[g_route_count].path) - 1);	// Copie le chemin dans la structure de route
-	g_routes[g_route_count].path[sizeof(g_routes[g_route_count].path) - 1] = '\0';			// Termine la chaîne par '\0'
-	g_routes[g_route_count].handler = handler;												// Associe le handler à la route
-	g_route_count++;																		// Incrémente le compteur de routes
-	char dbg[80];																			// Buffer pour message de debug
+	strncpy(g_routes[g_route_count].path, path, sizeof(g_routes[g_route_count].path) - 1); // Copie le chemin dans la structure de route
+	g_routes[g_route_count].path[sizeof(g_routes[g_route_count].path) - 1] = '\0';		   // Termine la chaîne par '\0'
+	g_routes[g_route_count].handler = handler;											   // Associe le handler à la route
+	g_route_count++;																	   // Incrémente le compteur de routes
+	char dbg[ESP01_MAX_DBG_BUF];
 	snprintf(dbg, sizeof(dbg), "[WEB] Route ajoutée : %s (total %d)", path, g_route_count); // Prépare le message de debug
 	_esp_logln(dbg);																		// Affiche le message de debug
 	return ESP01_OK;																		// Retourne OK
@@ -1238,9 +1238,9 @@ esp01_route_handler_t esp01_find_route_handler(const char *path)
  * @param dma_buf_size Taille du buffer DMA RX
  * @return ESP01_OK si succès, code d'erreur sinon
  */
-ESP01_Status_t esp01_test_at(uint8_t *dma_rx_buf, uint16_t dma_buf_size)
+ESP01_Status_t esp01_test_at(void)
 {
-	char response[256];																				  // Buffer pour la réponse AT
+	char response[ESP01_DMA_RX_BUF_SIZE];															  // Buffer pour la réponse AT
 	ESP01_Status_t status = esp01_send_raw_command_dma("AT", response, sizeof(response), "OK", 2000); // Envoie la commande AT et attend "OK"
 	return status;																					  // Retourne le statut
 }
@@ -1255,7 +1255,7 @@ ESP01_Status_t esp01_get_current_ip(char *ip_buffer, size_t buffer_size)
 {
 	VALIDATE_PARAM(ip_buffer && buffer_size > 0, ESP01_FAIL); // Vérifie les paramètres
 
-	char response[512];																									  // Buffer pour la réponse AT
+	char response[ESP01_DMA_RX_BUF_SIZE];																				  // Buffer pour la réponse AT
 	ESP01_Status_t status = esp01_send_raw_command_dma("AT+CIFSR", response, sizeof(response), "OK", ESP01_TIMEOUT_LONG); // Envoie la commande AT+CIFSR
 
 	if (status != ESP01_OK) // Si la commande a échoué
@@ -1321,7 +1321,7 @@ ESP01_Status_t esp01_http_get(const char *host, uint16_t port, const char *path,
 		return ESP01_FAIL;										 // Retourne FAIL
 	}
 
-	char http_req[256]; // Buffer pour la requête HTTP GET
+	char http_req[ESP01_MAX_HTTP_REQ_BUF]; // Buffer pour la requête HTTP GET
 	snprintf(http_req, sizeof(http_req),
 			 "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host); // Prépare la requête GET
 
@@ -1355,6 +1355,7 @@ const char *esp01_get_error_string(ESP01_Status_t status)
 	case ESP01_FAIL:
 		return "Echec général"; // Échec général
 	case ESP01_TIMEOUT:
+
 		return "Timeout"; // Timeout
 	case ESP01_NOT_INITIALIZED:
 		return "Non initialisé"; // Non initialisé
@@ -1388,7 +1389,7 @@ ESP01_Status_t esp01_get_at_version(char *version_buf, size_t buf_size)
 	if (!version_buf || buf_size == 0) // Vérifie les paramètres
 		return ESP01_FAIL;			   // Retourne FAIL
 
-	char response[ESP01_DMA_RX_BUF_SIZE] = {0};																			 // Buffer pour la réponse AT
+	char response[ESP01_DMA_RX_BUF_SIZE] = {0};																 			 // Buffer pour la version AT
 	ESP01_Status_t status = esp01_send_raw_command_dma("AT+GMR", response, sizeof(response), "OK", ESP01_TIMEOUT_SHORT); // Envoie la commande AT+GMR
 
 	if (status != ESP01_OK) // Si la commande a échoué
@@ -1418,46 +1419,6 @@ ESP01_Status_t esp01_get_at_version(char *version_buf, size_t buf_size)
 }
 
 /**
- * @brief Parse les headers HTTP (après la première ligne), callback appelé pour chaque header trouvé
- * @param headers_start Début des headers
- * @param on_header Callback appelé pour chaque header
- * @param user Pointeur utilisateur transmis au callback
- * @return ESP01_OK si succès
- */
-ESP01_Status_t parse_http_headers(const char *headers_start, void (*on_header)(http_header_kv_t *header, void *user), void *user)
-{
-	const char *p = headers_start;				  // Pointeur de parcours
-	while (*p && !(p[0] == '\r' && p[1] == '\n')) // Tant qu'on n'est pas à la fin des headers
-	{
-		// Trouve la fin de la ligne
-		const char *line_end = strstr(p, "\r\n"); // Cherche la fin de la ligne
-		if (!line_end)							  // Si non trouvée
-			break;								  // Sort de la boucle
-
-		// Trouve le séparateur ':'
-		const char *colon = strchr(p, ':'); // Cherche ':'
-		if (colon && colon < line_end)		// Si ':' trouvé avant la fin de ligne
-		{
-			// Ignore les espaces après ':'
-			const char *val_start = colon + 1;				  // Début de la valeur
-			while (*val_start == ' ' && val_start < line_end) // Ignore les espaces
-				val_start++;								  // Avance
-
-			http_header_kv_t header;				 // Structure pour le header
-			header.key = p;							 // Pointeur sur la clé
-			header.key_len = colon - p;				 // Longueur de la clé
-			header.value = val_start;				 // Pointeur sur la valeur
-			header.value_len = line_end - val_start; // Longueur de la valeur
-
-			if (on_header)				  // Si callback défini
-				on_header(&header, user); // Appelle le callback
-		}
-		p = line_end + 2; // Passe à la ligne suivante
-	}
-	return ESP01_OK; // Retourne OK
-}
-
-/**
  * @brief Ferme automatiquement les connexions inactives depuis plus de 30s
  */
 void esp01_cleanup_inactive_connections(void)
@@ -1468,9 +1429,9 @@ void esp01_cleanup_inactive_connections(void)
 		if (g_connections[i].is_active && (now - g_connections[i].last_activity > ESP01_CONN_TIMEOUT_MS)) // Si la connexion est inactive trop longtemps
 		{
 			// Ferme la connexion côté ESP01
-			char cmd[32];															// Buffer pour la commande AT
+			char cmd[ESP01_MAX_CMD_BUF];											// Buffer pour la commande AT
 			snprintf(cmd, sizeof(cmd), "AT+CIPCLOSE=%d", g_connections[i].conn_id); // Prépare la commande AT+CIPCLOSE
-			char resp[64];															// Buffer pour la réponse AT
+			char resp[ESP01_CMD_RESP_BUF_SIZE];										// Buffer pour la réponse AT
 			esp01_send_raw_command_dma(cmd, resp, sizeof(resp), "OK", 2000);		// Envoie la commande AT+CIPCLOSE
 
 			g_connections[i].is_active = false;					   // Marque la connexion comme inactive

@@ -3,36 +3,18 @@
 
 // ==================== INCLUDES ====================
 
-#include "main.h"
-// Si stdio.h n'est pas déjà inclus, on l'inclut ici
-#ifndef __STDIO_H
-#define __STDIO_H
-#include <stdio.h> // Pour printf et autres fonctions de sortie standard
-#endif
-// Si stdint.h n'est pas déjà inclus, on l'inclut ici
-#ifndef __STDINT_H
-#define __STDINT_H
-#include <stdint.h> // Pour les types d'entiers standardisés (uint8_t, int32_t, etc.)
-#endif
-// Si stdbool.h n'est pas déjà inclus, on l'inclut ici
-#ifndef __STDBOOL_H
-#define __STDBOOL_H
+#include "main.h"	 // Pour les définitions de HAL et les types de données STM32
+#include <stdio.h>	 // Pour printf et autres fonctions de sortie standard
+#include <stdint.h>	 // Pour les types d'entiers standardisés (uint8_t, int32_t, etc.)
 #include <stdbool.h> // Pour les types booléens (true/false)
-#endif
-// Si stdlib.h n'est pas déjà inclus, on l'inclut ici
-#ifndef __STDLIB_H
-#define __STDLIB_H
-#include <stdlib.h> // Pour les fonctions utilitaires comme malloc, free, etc.
-#endif
-// Si string.h n'est pas déjà inclus, on l'inclut ici
-#ifndef __STRING_H
-#define __STRING_H
-#include <string.h> // Pour les fonctions de manipulation de chaînes
-#endif
+#include <stdlib.h>	 // Pour les fonctions utilitaires comme malloc, free, etc.
+#include <string.h>	 // Pour les fonctions de manipulation de chaînes
 
 // ==================== DÉFINITIONS & MACROS ====================
 
 #define ESP01_DEBUG 0
+
+// --- Buffers et tailles ---
 #define ESP01_DMA_RX_BUF_SIZE 512
 #define ESP01_MAX_ROUTES 8
 #define ESP01_MAX_CONNECTIONS 5
@@ -49,15 +31,51 @@
 #define ESP01_MAX_HTTP_METHOD_LEN 8
 #define ESP01_MAX_HTTP_PATH_LEN 64
 #define ESP01_MAX_HTTP_QUERY_LEN 128
-#define ESP01_TERMINAL_RESPONSE_BUF_SIZE 2048
+#define ESP01_MAX_HEADER_BUF 512
+#define ESP01_MAX_DBG_BUF 128
+#define ESP01_MAX_ROUTE_DBG_BUF 80
+#define ESP01_MAX_CMD_BUF 256
+#define ESP01_MAX_RESP_BUF 2048
+#define ESP01_MAX_CIPSEND_BUF 32
+#define ESP01_MAX_HTTP_REQ_BUF 256
+#define ESP01_TMP_BUF_SIZE 256
+#define ESP01_CMD_RESP_BUF_SIZE 64
+#define ESP01_AT_VERSION_BUF 128
+#define ESP01_IP_BUF_SIZE 32
+#define ESP01_MAX_BODY_PARAMS 8
+#define ESP01_MAX_ROW_SIZE 128
+#define ESP01_MAX_PARAMS_HTML 512
+#define ESP01_MAX_HTML_SIZE 2048
+#define ESP01_MAX_AT_VERSION 64
+
 #define IPD_HEADER_MIN_LEN 5
 
+// --- Timeouts ---
 #define ESP01_TIMEOUT_SHORT 1000
 #define ESP01_TIMEOUT_MEDIUM 3000
 #define ESP01_TIMEOUT_LONG 5000
 #define ESP01_TIMEOUT_WIFI 15000
 #define ESP01_TERMINAL_TIMEOUT_MS 30000
+#define ESP01_CONN_TIMEOUT_MS 30000
+
 #define ESP01_MULTI_CONNECTION 1
+
+// --- HTTP ---
+#define ESP01_HTTP_404_BODY "<html><body><h1>404 - Page Not Found</h1></body></html>"
+#define ESP01_HTTP_404_BODY_LEN (sizeof(ESP01_HTTP_404_BODY) - 1)
+#define ESP01_HTTP_FAVICON_PATH "/favicon.ico"
+#define ESP01_HTTP_FAVICON_CODE 204
+#define ESP01_HTTP_FAVICON_TYPE "image/x-icon"
+#define ESP01_HTTP_OK_CODE 200
+#define ESP01_HTTP_OK_TYPE "application/json"
+#define ESP01_HTTP_NOT_FOUND_CODE 404
+#define ESP01_HTTP_NOT_FOUND_TYPE "text/html"
+#define ESP01_HTTP_INTERNAL_ERR_CODE 500
+#define ESP01_HTTP_UNKNOWN_CODE 0
+#define ESP01_HTTP_CONN_CLOSE "Connection: close\r\n"
+#define ESP01_HTTP_VERSION "HTTP/1.1"
+#define ESP01_HTTP_CRLF "\r\n"
+#define ESP01_HTTP_HEADER_END "\r\n\r\n"
 
 // ==================== TYPES & STRUCTURES ====================
 
@@ -180,7 +198,7 @@ ESP01_Status_t esp01_start_server_config(
 	bool multi_conn,
 	uint16_t port);
 
-ESP01_Status_t esp01_test_at(uint8_t *dma_rx_buf, uint16_t dma_buf_size);
+ESP01_Status_t esp01_test_at(void);
 ESP01_Status_t esp01_get_at_version(char *version_buf, size_t buf_size);
 ESP01_Status_t esp01_stop_web_server(void);
 ESP01_Status_t esp01_get_connection_status(void);
@@ -201,7 +219,6 @@ ESP01_Status_t esp01_send_http_response(int conn_id, int status_code, const char
 ESP01_Status_t esp01_send_json_response(int conn_id, const char *json_data);
 ESP01_Status_t esp01_send_404_response(int conn_id);
 ESP01_Status_t esp01_http_get(const char *host, uint16_t port, const char *path, char *response, size_t response_size);
-ESP01_Status_t parse_http_headers(const char *headers_start, void (*on_header)(http_header_kv_t *header, void *user), void *user);
 
 // ==================== GESTION DES CONNEXIONS ====================
 
