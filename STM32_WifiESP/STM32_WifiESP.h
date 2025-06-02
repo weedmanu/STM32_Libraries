@@ -200,10 +200,14 @@ ESP01_Status_t esp01_send_http_response(int conn_id, int status_code, const char
 										const char *body, size_t body_len);
 ESP01_Status_t esp01_send_json_response(int conn_id, const char *json_data);
 ESP01_Status_t esp01_send_404_response(int conn_id);
-void esp01_process_requests(void);
-const char *esp01_get_error_string(ESP01_Status_t status);
 ESP01_Status_t esp01_http_get(const char *host, uint16_t port, const char *path, char *response, size_t response_size);
 ESP01_Status_t parse_http_headers(const char *headers_start, void (*on_header)(http_header_kv_t *header, void *user), void *user);
+
+// ==================== GESTION DES CONNEXIONS ====================
+
+const char *esp01_get_error_string(ESP01_Status_t status);
 int esp01_get_active_connection_count(void);
+void esp01_process_requests(void);
+void esp01_cleanup_inactive_connections();
 
 #endif /* INC_STM32_WIFIESP_H_ */
