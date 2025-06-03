@@ -39,15 +39,31 @@ void alexa_init(void)
 	esp01_add_route("/description.xml", alexa_handle_description);
 	esp01_add_route("/api", alexa_handle_api);
 	esp01_add_route("/api/", alexa_handle_api);
-	esp01_add_route("/api/lights", alexa_handle_api);
-	esp01_add_route("/api/lights/", alexa_handle_api);
+	esp01_add_route("/api/lights", alexa_handle_lights);
+	esp01_add_route("/api/lights/", alexa_handle_lights);
 	esp01_add_route("/upnp/discovery", alexa_handle_ssdp);
+	esp01_add_route("/upnp/control/basicevent1", alexa_handle_ssdp);
+	esp01_add_route("/eventservice.xml", alexa_handle_description);
+	esp01_add_route("/setup.xml", alexa_handle_description);
+
+	// Ajout de routes pour les contrôles spécifiques
+	esp01_add_route("/api/lights/1/state", alexa_handle_light_control);
+	esp01_add_route("/api/lights/2/state", alexa_handle_light_control);
+	esp01_add_route("/api/lights/3/state", alexa_handle_light_control);
+	esp01_add_route("/api/lights/4/state", alexa_handle_light_control);
+	esp01_add_route("/api/lights/5/state", alexa_handle_light_control);
+	esp01_add_route("/api/lights/6/state", alexa_handle_light_control);
+	esp01_add_route("/api/lights/7/state", alexa_handle_light_control);
+	esp01_add_route("/api/lights/8/state", alexa_handle_light_control);
 
 	// Réinitialise le tableau des périphériques
 	memset(g_devices, 0, sizeof(g_devices));
 	g_device_count = 0;
 
 	alexa_logln("Module initialisé, IP: %s", g_device_ip);
+
+	// Envoyer immédiatement des annonces de découverte
+	alexa_handle_discovery();
 }
 
 // Ajout d'un périphérique GPIO (ON/OFF)
@@ -96,30 +112,20 @@ int alexa_add_pwm_device(const char *name, TIM_HandleTypeDef *htim, uint32_t cha
 	return id;
 }
 
+// Variables pour la gestion des annonces périodiques
+static uint32_t g_last_discovery_time = 0;
+#define ALEXA_DISCOVERY_INTERVAL 30000 // 30 secondes
+
 // Traitement des requêtes Alexa
 void alexa_process(void)
 {
-	// Cette fonction est appelée dans la boucle principale
-	// Le traitement des requêtes est géré par les handlers de route
-}
-
-// Gestionnaire pour la découverte SSDP
-static void alexa_handle_ssdp(int conn_id, const http_parsed_request_t *request)
-{
-	char response[512];
-	snprintf(response, sizeof(response),
-			 "HTTP/1.1 200 OK\r\n"
-			 "CACHE-CONTROL: max-age=86400\r\n"
-			 "EXT:\r\n"
-			 "LOCATION: http://%s:%d/description.xml\r\n"
-			 "SERVER: FreeRTOS/9.0 UPnP/1.0 IpBridge/1.17.0\r\n"
-			 "hue-bridgeid: 001788FFFE100000\r\n"
-			 "ST: urn:schemas-upnp-org:device:basic:1\r\n"
-			 "USN: uuid:2f402f80-da50-11e1-9b23-001788010000\r\n\r\n",
-			 g_device_ip, ALEXA_HTTP_PORT);
-
-	esp01_send_http_response(conn_id, 200, "text/plain", response, strlen(response));
-	alexa_logln("Requête SSDP traitée");
+	// Vérifier s'il est temps d'envoyer une nouvelle annonce de découverte
+	uint32_t current_time = HAL_GetTick();
+	if (current_time - g_last_discovery_time > ALEXA_DISCOVERY_INTERVAL)
+	{
+		alexa_handle_discovery();
+		g_last_discovery_time = current_time;
+	}
 }
 
 // Gestionnaire pour la description du périphérique
@@ -133,26 +139,260 @@ static void alexa_handle_description(int conn_id, const http_parsed_request_t *r
 			 "<URLBase>http://%s:%d/</URLBase>"
 			 "<device>"
 			 "<deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>"
-			 "<friendlyName>Philips hue</friendlyName>"
-			 "<manufacturer>Royal Philips Electronics</manufacturer>"
-			 "<manufacturerURL>http://www.philips.com</manufacturerURL>"
-			 "<modelDescription>Philips hue Personal Wireless Lighting</modelDescription>"
-			 "<modelName>Philips hue bridge 2015</modelName>"
-			 "<modelNumber>BSB002</modelNumber>"
-			 "<serialNumber>001788102201</serialNumber>"
-			 "<UDN>uuid:2f402f80-da50-11e1-9b23-001788010000</UDN>"
+			 "<friendlyName>%s</friendlyName>"
+			 "<manufacturer>Belkin International Inc.</manufacturer>"
+			 "<modelName>Emulated Wemo</modelName>"
+			 "<modelNumber>3.1415</modelNumber>"
+			 "<UDN>uuid:Socket-1_0-%s</UDN>"
+			 "<serviceList>"
+			 "<service>"
+			 "<serviceType>urn:Belkin:service:basicevent:1</serviceType>"
+			 "<serviceId>urn:Belkin:serviceId:basicevent1</serviceId>"
+			 "<controlURL>/upnp/control/basicevent1</controlURL>"
+			 "<eventSubURL>/upnp/event/basicevent1</eventSubURL>"
+			 "<SCPDURL>/eventservice.xml</SCPDURL>"
+			 "</service>"
+			 "</serviceList>"
 			 "</device>"
 			 "</root>",
-			 g_device_ip, ALEXA_HTTP_PORT);
+			 g_device_ip, ALEXA_HTTP_PORT,
+			 g_devices[0].name,		 // Utilise le nom du premier périphérique
+			 g_devices[0].uniqueid); // Utilise l'ID unique du premier périphérique
 
 	esp01_send_http_response(conn_id, 200, "text/xml", response, strlen(response));
 	alexa_logln("Description du périphérique envoyée");
 }
 
+static void alexa_handle_ssdp(int conn_id, const http_parsed_request_t *request)
+{
+	alexa_logln("Requête SSDP reçue: %s", request->headers_buf);
+
+	// Vérifier si c'est une requête M-SEARCH
+	if (strstr(request->headers_buf, "M-SEARCH") != NULL)
+	{
+		// Extraire l'adresse IP source et le port de la requête M-SEARCH
+		char source_ip[16] = {0};
+		uint16_t source_port = 0;
+
+		// Extraire l'IP et le port du client depuis les en-têtes de la requête
+		if (request->headers_buf[0] != '\0')
+		{
+			const char *ip_start = strstr(request->headers_buf, "\"");
+			if (ip_start)
+			{
+				ip_start++; // Sauter le premier guillemet
+				const char *ip_end = strstr(ip_start, "\"");
+				if (ip_end)
+				{
+					size_t ip_len = ip_end - ip_start;
+					if (ip_len < sizeof(source_ip))
+					{
+						strncpy(source_ip, ip_start, ip_len);
+						source_ip[ip_len] = '\0';
+
+						// Extraire le port
+						const char *port_start = strstr(ip_end, ",");
+						if (port_start)
+						{
+							port_start++; // Sauter la virgule
+							source_port = atoi(port_start);
+						}
+					}
+				}
+			}
+		}
+
+		// Si on a réussi à extraire l'IP et le port
+		if (source_ip[0] != '\0' && source_port > 0)
+		{
+			alexa_logln("Envoi réponses M-SEARCH à %s:%d", source_ip, source_port);
+			
+			char response[512];
+			
+			// Déterminer le type de recherche (ST)
+			const char *st_header = strstr(request->headers_buf, "ST:");
+			if (!st_header) st_header = strstr(request->headers_buf, "st:");
+			
+			if (st_header)
+			{
+				alexa_logln("ST header trouvé: %s", st_header);
+				
+				// Réponse pour rootdevice
+				if (strstr(st_header, "upnp:rootdevice"))
+				{
+					snprintf(response, sizeof(response),
+							"HTTP/1.1 200 OK\r\n"
+							"CACHE-CONTROL: max-age=86400\r\n"
+							"DATE: Sat, 01 Jan 2022 00:00:00 GMT\r\n"
+							"EXT:\r\n"
+							"LOCATION: http://%s:%d/description.xml\r\n"
+							"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+							"ST: upnp:rootdevice\r\n"
+							"USN: uuid:Socket-1_0-%s::upnp:rootdevice\r\n\r\n",
+							g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid);
+					esp01_send_udp(source_ip, source_port, response, strlen(response));
+					alexa_logln("Réponse rootdevice envoyée");
+				}
+				// Réponse pour device
+				else if (strstr(st_header, "urn:Belkin:device") || strstr(st_header, "ssdp:all"))
+				{
+					snprintf(response, sizeof(response),
+							"HTTP/1.1 200 OK\r\n"
+							"CACHE-CONTROL: max-age=86400\r\n"
+							"DATE: Sat, 01 Jan 2022 00:00:00 GMT\r\n"
+							"EXT:\r\n"
+							"LOCATION: http://%s:%d/description.xml\r\n"
+							"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+							"ST: urn:Belkin:device:**\r\n"
+							"USN: uuid:Socket-1_0-%s::urn:Belkin:device:**\r\n\r\n",
+							g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid);
+					esp01_send_udp(source_ip, source_port, response, strlen(response));
+					alexa_logln("Réponse device envoyée");
+				}
+				// Réponse pour UUID
+				else if (strstr(st_header, "uuid:"))
+				{
+					snprintf(response, sizeof(response),
+							"HTTP/1.1 200 OK\r\n"
+							"CACHE-CONTROL: max-age=86400\r\n"
+							"DATE: Sat, 01 Jan 2022 00:00:00 GMT\r\n"
+							"EXT:\r\n"
+							"LOCATION: http://%s:%d/description.xml\r\n"
+							"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+							"ST: uuid:Socket-1_0-%s\r\n"
+							"USN: uuid:Socket-1_0-%s\r\n\r\n",
+							g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid, g_devices[0].uniqueid);
+					esp01_send_udp(source_ip, source_port, response, strlen(response));
+					alexa_logln("Réponse UUID envoyée");
+				}
+				// Réponse pour tout autre type de recherche
+				else
+				{
+					// Envoyer toutes les réponses possibles
+					// Réponse rootdevice
+					snprintf(response, sizeof(response),
+							"HTTP/1.1 200 OK\r\n"
+							"CACHE-CONTROL: max-age=86400\r\n"
+							"DATE: Sat, 01 Jan 2022 00:00:00 GMT\r\n"
+							"EXT:\r\n"
+							"LOCATION: http://%s:%d/description.xml\r\n"
+							"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+							"ST: upnp:rootdevice\r\n"
+							"USN: uuid:Socket-1_0-%s::upnp:rootdevice\r\n\r\n",
+							g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid);
+					esp01_send_udp(source_ip, source_port, response, strlen(response));
+					HAL_Delay(20);
+					
+					// Réponse device
+					snprintf(response, sizeof(response),
+							"HTTP/1.1 200 OK\r\n"
+							"CACHE-CONTROL: max-age=86400\r\n"
+							"DATE: Sat, 01 Jan 2022 00:00:00 GMT\r\n"
+							"EXT:\r\n"
+							"LOCATION: http://%s:%d/description.xml\r\n"
+							"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+							"ST: urn:Belkin:device:**\r\n"
+							"USN: uuid:Socket-1_0-%s::urn:Belkin:device:**\r\n\r\n",
+							g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid);
+					esp01_send_udp(source_ip, source_port, response, strlen(response));
+					HAL_Delay(20);
+					
+					// Réponse UUID
+					snprintf(response, sizeof(response),
+							"HTTP/1.1 200 OK\r\n"
+							"CACHE-CONTROL: max-age=86400\r\n"
+							"DATE: Sat, 01 Jan 2022 00:00:00 GMT\r\n"
+							"EXT:\r\n"
+							"LOCATION: http://%s:%d/description.xml\r\n"
+							"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+							"ST: uuid:Socket-1_0-%s\r\n"
+							"USN: uuid:Socket-1_0-%s\r\n\r\n",
+							g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid, g_devices[0].uniqueid);
+					esp01_send_udp(source_ip, source_port, response, strlen(response));
+					
+					alexa_logln("Toutes les réponses envoyées");
+				}
+			}
+			else
+			{
+				// Si pas de ST header, envoyer toutes les réponses
+				// Réponse rootdevice
+				snprintf(response, sizeof(response),
+						"HTTP/1.1 200 OK\r\n"
+						"CACHE-CONTROL: max-age=86400\r\n"
+						"DATE: Sat, 01 Jan 2022 00:00:00 GMT\r\n"
+						"EXT:\r\n"
+						"LOCATION: http://%s:%d/description.xml\r\n"
+						"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+						"ST: upnp:rootdevice\r\n"
+						"USN: uuid:Socket-1_0-%s::upnp:rootdevice\r\n\r\n",
+						g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid);
+				esp01_send_udp(source_ip, source_port, response, strlen(response));
+				HAL_Delay(20);
+				
+				// Réponse device
+				snprintf(response, sizeof(response),
+						"HTTP/1.1 200 OK\r\n"
+						"CACHE-CONTROL: max-age=86400\r\n"
+						"DATE: Sat, 01 Jan 2022 00:00:00 GMT\r\n"
+						"EXT:\r\n"
+						"LOCATION: http://%s:%d/description.xml\r\n"
+						"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+						"ST: urn:Belkin:device:**\r\n"
+						"USN: uuid:Socket-1_0-%s::urn:Belkin:device:**\r\n\r\n",
+						g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid);
+				esp01_send_udp(source_ip, source_port, response, strlen(response));
+				HAL_Delay(20);
+				
+				alexa_logln("Réponses par défaut envoyées");
+			}
+		}
+
+		// Envoyer aussi une annonce de découverte générale
+		alexa_handle_discovery();
+	}
+	else if (strstr(request->path, "/upnp/control/basicevent1") != NULL)
+	{
+		// Gérer les requêtes de contrôle UPnP
+		esp01_send_http_response(conn_id, 200, "text/xml", 
+			"<?xml version=\"1.0\"?>\r\n"
+			"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\r\n"
+			"<s:Body>\r\n"
+			"<u:SetBinaryStateResponse xmlns:u=\"urn:Belkin:service:basicevent:1\">\r\n"
+			"<BinaryState>1</BinaryState>\r\n"
+			"</u:SetBinaryStateResponse>\r\n"
+			"</s:Body>\r\n"
+			"</s:Envelope>\r\n", 290);
+		
+		alexa_logln("Réponse basicevent envoyée");
+	}
+	else
+	{
+		esp01_send_http_response(conn_id, 200, "text/plain", "OK", 2);
+	}
+
+	alexa_logln("Requête SSDP traitée");
+}
+
 // Gestionnaire pour l'API Hue
 static void alexa_handle_api(int conn_id, const http_parsed_request_t *request)
 {
-	// Vérifie si c'est une requête pour un périphérique spécifique
+	alexa_logln("Requête API reçue: %s %s", request->method, request->path);
+
+	// Si c'est une requête POST sur /api (authentification)
+	if (strcmp(request->method, "POST") == 0 && strcmp(request->path, "/api") == 0)
+	{
+		// Simulation d'une authentification réussie
+		char response[256];
+		snprintf(response, sizeof(response),
+				 "[{\"success\":{\"username\":\"STM32AlexaUser\"}}]");
+
+		esp01_send_http_response(conn_id, 200, "application/json", response, strlen(response));
+		alexa_logln("Authentification simulée envoyée");
+		return;
+	}
+
+	// Vérifie si c'est une requête pour les périphériques
 	if (strstr(request->path, "/api/lights"))
 	{
 		alexa_handle_lights(conn_id, request);
@@ -273,10 +513,10 @@ static void alexa_handle_lights(int conn_id, const http_parsed_request_t *reques
 // Gestionnaire pour le contrôle des périphériques
 static void alexa_handle_light_control(int conn_id, const http_parsed_request_t *request)
 {
-	// Afficher le chemin complet pour le débogage
-	alexa_logln("Chemin de la requête de contrôle: %s", request->path);
+	alexa_logln("=== CONTRÔLE PÉRIPHÉRIQUE ===");
+	alexa_logln("Chemin: %s", request->path);
 	alexa_logln("Méthode: %s", request->method);
-	alexa_logln("Headers: %s", request->headers_buf);
+	alexa_logln("Body: %s", request->headers_buf);
 
 	// Extrait l'ID du périphérique de l'URL
 	char device_id_str[8] = {0};
@@ -295,42 +535,38 @@ static void alexa_handle_light_control(int conn_id, const http_parsed_request_t 
 		}
 	}
 
-	alexa_logln("ID du périphérique extrait: %s", device_id_str);
+	alexa_logln("ID extrait: %s", device_id_str);
 
 	int device_id = atoi(device_id_str) - 1;
 	if (device_id < 0 || device_id >= g_device_count)
 	{
 		esp01_send_http_response(conn_id, 404, "application/json", "{\"error\":\"Device not found\"}", 26);
-		alexa_logln("Périphérique %d non trouvé pour contrôle", device_id);
+		alexa_logln("Périphérique %d non trouvé", device_id);
 		return;
 	}
 
-	// Afficher le contenu complet pour le débogage
-	alexa_logln("Contenu de la requête: %s", request->headers_buf);
-
-	// Déterminer l'état à partir de la commande
-	uint8_t new_state = g_devices[device_id].state; // État par défaut
-	uint8_t new_brightness = g_devices[device_id].brightness; // Luminosité par défaut
-	uint8_t brightness_changed = 0;
+	// Variables pour le nouvel état
+	uint8_t new_state = g_devices[device_id].state;
+	uint8_t new_brightness = g_devices[device_id].brightness;
 	uint8_t state_changed = 0;
+	uint8_t brightness_changed = 0;
 
-	// Détection des commandes ON/OFF
-	if (strstr(request->headers_buf, "on"))
+	// Recherche de la commande ON/OFF dans le body avec différents formats possibles
+	if (strstr(request->headers_buf, "\"on\":true") ||
+		strstr(request->headers_buf, "{\"on\":true}"))
 	{
-		if (strstr(request->headers_buf, "false"))
-		{
-			new_state = 0;
-			state_changed = 1;
-			alexa_logln("Commande OFF détectée");
-		}
-		else
-		{
-			new_state = 1;
-			state_changed = 1;
-			alexa_logln("Commande ON détectée");
-		}
+		new_state = 1;
+		state_changed = 1;
+		alexa_logln("Commande ON détectée");
 	}
-	
+	else if (strstr(request->headers_buf, "\"on\":false") ||
+			 strstr(request->headers_buf, "{\"on\":false}"))
+	{
+		new_state = 0;
+		state_changed = 1;
+		alexa_logln("Commande OFF détectée");
+	}
+
 	// Recherche d'une commande de luminosité
 	const char *bri_start = strstr(request->headers_buf, "\"bri\":");
 	if (bri_start && g_devices[device_id].type == ALEXA_DEVICE_DIMMABLE)
@@ -338,33 +574,47 @@ static void alexa_handle_light_control(int conn_id, const http_parsed_request_t 
 		bri_start += 6; // Longueur de "\"bri\":"
 		new_brightness = (uint8_t)atoi(bri_start);
 		brightness_changed = 1;
-		
+
 		// Si la luminosité est > 0, on s'assure que l'état est ON
 		if (new_brightness > 0)
 		{
 			new_state = 1;
 			state_changed = 1;
 		}
-		
+
 		alexa_logln("Commande de luminosité détectée: %d", new_brightness);
 	}
 
 	// Mettre à jour l'état du périphérique
-	alexa_logln("Mise à jour de l'état: device_id=%d, state=%d, brightness=%d", 
-		device_id, new_state, new_brightness);
+	alexa_logln("Mise à jour: device_id=%d, state=%d->%d, brightness=%d->%d",
+				device_id, g_devices[device_id].state, new_state,
+				g_devices[device_id].brightness, new_brightness);
+
 	alexa_update_device_state(device_id, new_state, new_brightness);
 
-	// Générer la réponse avec l'ID du périphérique correct
-	char response[256];
-	
-	// Utiliser sprintf pour inclure l'ID correct du périphérique
-	sprintf(response, "[{\"success\":{\"/lights/%d/state/on\":%s}}]", 
-		device_id + 1, 
-		new_state ? "true" : "false");
+	// CORRIGÉ: Générer une réponse JSON correcte
+	char response[512];
+	char *ptr = response;
+	ptr += sprintf(ptr, "[");
+
+	if (state_changed)
+	{
+		ptr += sprintf(ptr, "{\"success\":{\"/lights/%d/state/on\":%s}}",
+					   device_id + 1, new_state ? "true" : "false");
+	}
+
+	if (brightness_changed)
+	{
+		if (state_changed)
+			ptr += sprintf(ptr, ",");
+		ptr += sprintf(ptr, "{\"success\":{\"/lights/%d/state/bri\":%d}}",
+					   device_id + 1, new_brightness);
+	}
+
+	ptr += sprintf(ptr, "]");
 
 	esp01_send_http_response(conn_id, 200, "application/json", response, strlen(response));
-	alexa_logln("Contrôle du périphérique %d effectué (état: %d, luminosité: %d)", 
-		device_id, new_state, new_brightness);
+	alexa_logln("Réponse de contrôle envoyée: %s", response);
 }
 
 // Met à jour l'état d'un périphérique
@@ -425,20 +675,74 @@ void alexa_handle_discovery(void)
 {
 	alexa_logln("Envoi d'une annonce de découverte SSDP");
 
-	// Exemple d'annonce SSDP (broadcast UDP sur le port 1900)
-	const char *ssdp_msg =
+	// Mise à jour du temps de la dernière annonce
+	g_last_discovery_time = HAL_GetTick();
+	
+	// Envoyer les notifications SSDP
+	alexa_send_ssdp_notify();
+}
+
+// Fonction pour envoyer les notifications SSDP
+void alexa_send_ssdp_notify(void)
+{
+	char buffer[512];
+	
+	// Message SSDP pour Alexa (format Wemo - rootdevice)
+	const char *ssdp_msg1 =
 		"NOTIFY * HTTP/1.1\r\n"
 		"HOST: 239.255.255.250:1900\r\n"
-		"CACHE-CONTROL: max-age=100\r\n"
+		"CACHE-CONTROL: max-age=86400\r\n"
 		"LOCATION: http://%s:%d/description.xml\r\n"
-		"SERVER: FreeRTOS/9.0 UPnP/1.0 IpBridge/1.17.0\r\n"
-		"hue-bridgeid: 001788FFFE100000\r\n"
+		"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
 		"NT: upnp:rootdevice\r\n"
 		"NTS: ssdp:alive\r\n"
-		"USN: uuid:2f402f80-da50-11e1-9b23-001788010000::upnp:rootdevice\r\n\r\n";
+		"USN: uuid:Socket-1_0-%s::upnp:rootdevice\r\n\r\n";
 
-	char buffer[512];
-	snprintf(buffer, sizeof(buffer), ssdp_msg, g_device_ip, ALEXA_HTTP_PORT);
+	snprintf(buffer, sizeof(buffer), ssdp_msg1, g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid);
+	esp01_send_udp_broadcast(1900, buffer, strlen(buffer));
+	HAL_Delay(50);
 
+	// Message SSDP pour Alexa (format Wemo - device)
+	const char *ssdp_msg2 =
+		"NOTIFY * HTTP/1.1\r\n"
+		"HOST: 239.255.255.250:1900\r\n"
+		"CACHE-CONTROL: max-age=86400\r\n"
+		"LOCATION: http://%s:%d/description.xml\r\n"
+		"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+		"NT: urn:Belkin:device:**\r\n"
+		"NTS: ssdp:alive\r\n"
+		"USN: uuid:Socket-1_0-%s::urn:Belkin:device:**\r\n\r\n";
+
+	snprintf(buffer, sizeof(buffer), ssdp_msg2, g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid);
+	esp01_send_udp_broadcast(1900, buffer, strlen(buffer));
+	HAL_Delay(50);
+	
+	// Message SSDP pour Alexa (format Wemo - UUID)
+	const char *ssdp_msg3 =
+		"NOTIFY * HTTP/1.1\r\n"
+		"HOST: 239.255.255.250:1900\r\n"
+		"CACHE-CONTROL: max-age=86400\r\n"
+		"LOCATION: http://%s:%d/description.xml\r\n"
+		"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+		"NT: uuid:Socket-1_0-%s\r\n"
+		"NTS: ssdp:alive\r\n"
+		"USN: uuid:Socket-1_0-%s\r\n\r\n";
+
+	snprintf(buffer, sizeof(buffer), ssdp_msg3, g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid, g_devices[0].uniqueid);
+	esp01_send_udp_broadcast(1900, buffer, strlen(buffer));
+	HAL_Delay(50);
+	
+	// Message SSDP pour Alexa (format Wemo - basicevent)
+	const char *ssdp_msg4 =
+		"NOTIFY * HTTP/1.1\r\n"
+		"HOST: 239.255.255.250:1900\r\n"
+		"CACHE-CONTROL: max-age=86400\r\n"
+		"LOCATION: http://%s:%d/description.xml\r\n"
+		"SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+		"NT: urn:Belkin:service:basicevent:1\r\n"
+		"NTS: ssdp:alive\r\n"
+		"USN: uuid:Socket-1_0-%s::urn:Belkin:service:basicevent:1\r\n\r\n";
+
+	snprintf(buffer, sizeof(buffer), ssdp_msg4, g_device_ip, ALEXA_HTTP_PORT, g_devices[0].uniqueid);
 	esp01_send_udp_broadcast(1900, buffer, strlen(buffer));
 }
