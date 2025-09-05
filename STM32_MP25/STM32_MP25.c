@@ -1,164 +1,353 @@
 /**
- * @file STM32_MP25.c
- * @brief Implémentation de la librairie PM2.5 (DFRobot SEN0177) pour STM32 (HAL, DMA, UART)
+ * @file STM32_MP25_temp.c
+ * @brief Librairie minimaliste pour capteur PM2.5 SEN0177 (DFRobot) sur STM32 HAL
  *
- * Fournit l'acquisition, le parsing, l'interprétation et l'affichage des mesures PM1.0/2.5/10,
- * avec gestion DMA, callback utilisateur, et API modulaire.
- *
- * (c) M@nu, 2025. Licence Libre.
+ * Organisation par sections :
+ *  - Includes
+ *  - Structures & constantes
+ *  - Fonctions d'initialisation
+ *  - Fonctions de lecture & validation
+ *  - Fonctions d'interprétation qualité air
+ *  - Fonctions d'interprétation ratio
  */
 
-#include "STM32_MP25.h"
+// -----------------------------------------------------------------------------
+//  INCLUDES
+// -----------------------------------------------------------------------------
+#include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include "stm32l4xx_hal.h"
+#include "STM32_MP25.h"
+
+static int pm25_debug_mode = 0;
 
 // -----------------------------------------------------------------------------
-// Variables statiques internes
+//  MACROS
 // -----------------------------------------------------------------------------
-
-/**
- * @brief Callback utilisateur appelé à chaque trame valide (NULL si désactivé)
- */
-static PM25_UserCallback pm25_user_cb = NULL;
+#define PM25_DEBUG_PRINT(...)    \
+    do                           \
+    {                            \
+        if (pm25_debug_mode)     \
+            printf(__VA_ARGS__); \
+    } while (0)
 
 // -----------------------------------------------------------------------------
-// API publique
+//  OPTIMISATION: Extraction des champs optimisée (évite répétitions)
 // -----------------------------------------------------------------------------
-
-/**
- * @brief Enregistre un callback utilisateur (NULL pour désactiver)
- */
-void PM25_RegisterCallback(PM25_UserCallback cb) {
-    pm25_user_cb = cb;
-}
-
-/**
- * @brief Initialise la réception DMA du capteur PM2.5
- */
-void PM25_init(UART_HandleTypeDef *huart_PM25, uint8_t *dma_rx_buf, uint16_t dma_buf_size)
+static void pm25_extract_fields(PM25_FullData *data, const uint8_t *frame)
 {
-    // Flush du buffer DMA avant démarrage
-    memset(dma_rx_buf, 0, dma_buf_size);
-    HAL_UART_Receive_DMA(huart_PM25, dma_rx_buf, dma_buf_size);
-    printf("Init capteur PM2.5 DMA sur UART1, buf=%p, size=%u\r\n", dma_rx_buf, dma_buf_size);
+    // Copie optimisée du frame brut
+    memcpy(data->raw_frame, frame, PM25_FRAME_LEN);
+
+    // Extraction optimisée avec pointeur pour éviter calculs répétés
+    const uint8_t *ptr = frame + 4; // Commencer après header+length
+
+    // Utiliser une boucle pour les extractions répétitives
+    uint16_t *fields[] = {
+        &data->pm1_0_standard, &data->pm2_5_standard, &data->pm10_standard,
+        &data->pm1_0_atmospheric, &data->pm2_5_atmospheric, &data->pm10_atmospheric,
+        &data->particles_0_3um, &data->particles_0_5um, &data->particles_1_0um,
+        &data->particles_2_5um, &data->particles_5_0um, &data->particles_10um
+    };
+
+    for (int i = 0; i < 12; i++) {
+        *fields[i] = (ptr[0] << 8) | ptr[1];
+        ptr += 2;
+    }
+
+    data->version = frame[28];
+    data->checksum = (frame[30] << 8) | frame[31];
 }
 
-/**
- * @brief Retourne l'interprétation d'une valeur PM (indice, emoji, label, texte)
- */
-PM_StatusInfo PM_Get_Status(uint16_t pm, const char *type) {
-    if (strcmp(type, "PM2.5") == 0) {
-        if (pm <= 10)      return (PM_StatusInfo){1, "🟢", "Très bon", "Air pur, aucun risque."};
-        else if (pm <= 20) return (PM_StatusInfo){2, "🟢", "Bon", "Air sain, très faible risque."};
-        else if (pm <= 25) return (PM_StatusInfo){3, "🟡", "Moyen", "Qualité correcte, attention sensibles."};
-        else if (pm <= 50) return (PM_StatusInfo){4, "🟠", "Médiocre", "Limitez l'exposition prolongée."};
-        else if (pm <= 75) return (PM_StatusInfo){5, "🟠", "Très mauvais", "Évitez l'exposition, risque accru."};
-        else               return (PM_StatusInfo){6, "🔴", "Extrêmement mauvais", "Danger, évacuation recommandée !"};
-    } else if (strcmp(type, "PM10") == 0) {
-        if (pm <= 20)      return (PM_StatusInfo){1, "🟢", "Très bon", "Air pur, aucun risque."};
-        else if (pm <= 40) return (PM_StatusInfo){2, "🟢", "Bon", "Air sain, très faible risque."};
-        else if (pm <= 50) return (PM_StatusInfo){3, "🟡", "Moyen", "Qualité correcte, attention sensibles."};
-        else if (pm <= 100) return (PM_StatusInfo){4, "🟠", "Médiocre", "Limitez l'exposition prolongée."};
-        else if (pm <= 150) return (PM_StatusInfo){5, "🟠", "Très mauvais", "Évitez l'exposition, risque accru."};
-        else               return (PM_StatusInfo){6, "🔴", "Extrêmement mauvais", "Danger, évacuation recommandée !"};
-    } else { // PM1.0 ou inconnu
-        if (pm <= 10)      return (PM_StatusInfo){1, "🟢", "Très bon", "Air pur, aucun risque."};
-        else if (pm <= 20) return (PM_StatusInfo){2, "🟢", "Bon", "Air sain, très faible risque."};
-        else if (pm <= 25) return (PM_StatusInfo){3, "🟡", "Moyen", "Qualité correcte, attention sensibles."};
-        else if (pm <= 50) return (PM_StatusInfo){4, "🟠", "Médiocre", "Limitez l'exposition prolongée."};
-        else if (pm <= 75) return (PM_StatusInfo){5, "🟠", "Très mauvais", "Évitez l'exposition, risque accru."};
-        else               return (PM_StatusInfo){6, "🔴", "Extrêmement mauvais", "Danger, évacuation recommandée !"};
+// -----------------------------------------------------------------------------
+//  OPTIMISATION: Lecture UART optimisée (évite memmove répété)
+// -----------------------------------------------------------------------------
+static int read_and_extract(UART_HandleTypeDef *huart, PM25_FullData *data, uint32_t overall_timeout)
+{
+    uint8_t buffer[PM25_FRAME_LEN * 2]; // Buffer circulaire double taille
+    int head = 0; // Position d'écriture dans le buffer circulaire
+    uint32_t start = HAL_GetTick();
+
+    if (overall_timeout == 0)
+        overall_timeout = 1500;
+
+    PM25_DEBUG_PRINT("[PM25 DEBUG] Lecture optimisée: recherche trame valide...\n");
+
+    while ((HAL_GetTick() - start) < overall_timeout)
+    {
+        uint8_t b;
+        if (HAL_UART_Receive(huart, &b, 1, 200) != HAL_OK)
+            continue;
+
+        // Ajouter l'octet au buffer circulaire
+        buffer[head] = b;
+        head = (head + 1) % (PM25_FRAME_LEN * 2);
+
+        // Vérifier si on a assez de données pour une trame complète
+        if (head >= PM25_FRAME_LEN)
+        {
+            // Calculer la position de début de la fenêtre de 32 octets
+            int window_start = (head - PM25_FRAME_LEN + (PM25_FRAME_LEN * 2)) % (PM25_FRAME_LEN * 2);
+
+            // Vérifier le header
+            if (buffer[window_start] == 0x42 &&
+                buffer[(window_start + 1) % (PM25_FRAME_LEN * 2)] == 0x4D)
+            {
+                // Extraire la trame dans un buffer temporaire
+                uint8_t frame[PM25_FRAME_LEN];
+                for (int i = 0; i < PM25_FRAME_LEN; i++) {
+                    frame[i] = buffer[(window_start + i) % (PM25_FRAME_LEN * 2)];
+                }
+
+                // Vérifier le checksum
+                if (PM25_Validate_Checksum(frame))
+                {
+                    PM25_DEBUG_PRINT("[PM25 DEBUG] Trame valide trouvée - arrêt lecture\n");
+                    pm25_extract_fields(data, frame);
+                    return 1;
+                }
+            }
+        }
     }
+
+    PM25_DEBUG_PRINT("[PM25 DEBUG] Timeout - trame non trouvée\n");
+    return 0;
+}
+
+
+
+// Variables globales pour la pin SET
+static GPIO_TypeDef *pm25_set_port = GPIOA;
+static uint16_t pm25_set_pin = GPIO_PIN_8;
+static UART_HandleTypeDef *pm25_uart_handle = NULL;
+void PM25_SetControlPin(GPIO_TypeDef *port, uint16_t pin)
+{
+    pm25_set_port = port;
+    pm25_set_pin = pin;
+}
+
+// -----------------------------------------------------------------------------
+//  FONCTIONS D'INITIALISATION
+// -----------------------------------------------------------------------------
+void PM25_Polling_Init(UART_HandleTypeDef *huart)
+{
+    pm25_uart_handle = huart;
+
+    // Mettre le capteur en veille par défaut (SET = LOW)
+    PM25_DEBUG_PRINT("[PM25 DEBUG] Initialisation - mise en veille du capteur\n");
+    HAL_GPIO_WritePin(pm25_set_port, pm25_set_pin, GPIO_PIN_RESET);
+
+    HAL_Delay(2000); // Attendre la stabilisation
+    PM25_DEBUG_PRINT("[PM25 DEBUG] Init capteur PM2.5 terminée (capteur en veille)\n");
+}
+
+void PM25_SetDebugMode(int enable)
+{
+    pm25_debug_mode = enable;
+}
+
+
+// -----------------------------------------------------------------------------
+//  FONCTIONS DE LECTURE & VALIDATION
+// -----------------------------------------------------------------------------
+/**
+ * @brief Lit une trame complète avec toutes les données
+ * @param huart Handle UART
+ * @param data Structure de sortie complète
+ * @param timeout_ms Timeout en millisecondes pour la réception
+ * @return 1 si succès, 0 si échec
+ */
+int PM25_Polling_ReadFull(UART_HandleTypeDef *huart, PM25_FullData *data, const uint32_t *timeout_ms)
+{
+    int result = 0;
+    if (timeout_ms == NULL)
+    {
+        // Mode continu (caller passed NULL)
+        PM25_DEBUG_PRINT("[PM25 DEBUG] Mode continu (timeout NULL)\n");
+        result = read_and_extract(huart, data, 0);
+    }
+    else
+    {
+        // Mode périodique : contrôle SET via PA8 pour économie d'énergie
+        PM25_DEBUG_PRINT("[PM25 DEBUG] Mode périodique (interval %lu ms)\n", (unsigned long)*timeout_ms);
+
+        // Attendre d'abord l'intervalle demandé EN VEILLE
+        PM25_DEBUG_PRINT("[PM25 DEBUG] Attente %lu ms en mode veille...\n", (unsigned long)*timeout_ms);
+        HAL_Delay(*timeout_ms);
+
+        // Activer brièvement le capteur pour une seule lecture
+        PM25_DEBUG_PRINT("[PM25 DEBUG] SET -> HIGH (activation temporaire)\n");
+        HAL_GPIO_WritePin(pm25_set_port, pm25_set_pin, GPIO_PIN_SET);
+
+        // Attendre activation du capteur (optimisé)
+        HAL_Delay(1000);
+
+        // Lecture rapide d'une seule trame
+        PM25_DEBUG_PRINT("[PM25 DEBUG] Lecture d'une trame...\n");
+        result = read_and_extract(huart, data, 2000); // Timeout réduit à 2 secondes
+
+        // Remettre immédiatement en veille
+        PM25_DEBUG_PRINT("[PM25 DEBUG] SET -> LOW (retour en veille)\n");
+        HAL_GPIO_WritePin(pm25_set_port, pm25_set_pin, GPIO_PIN_RESET);
+    }
+    return result;
 }
 
 /**
  * @brief Vérifie l'en-tête d'une trame (0x42 0x4D)
+ * @param frame Trame brute reçue
+ * @return 1 si header valide, 0 sinon
  */
-int PM25_CheckHeader(const uint8_t *frame) {
-    return (frame[0] == 0x42 && frame[1] == 0x4D);
+int PM25_Validate_Header(const uint8_t *frame)
+{
+    int valid = (frame[0] == 0x42 && frame[1] == 0x4D);
+    PM25_DEBUG_PRINT("[PM25 DEBUG] Header validation: 0x%02X 0x%02X = %s\n",
+                     frame[0], frame[1], valid ? "OK" : "ERREUR");
+    return valid;
 }
 
 /**
  * @brief Vérifie le checksum d'une trame
+ * @param frame Trame brute reçue
+ * @return 1 si checksum OK, 0 sinon
  */
-int PM25_CheckChecksum(const uint8_t *frame) {
+int PM25_Validate_Checksum(const uint8_t *frame)
+{
     uint16_t sum = 0;
+    // Somme optimisée des 30 premiers octets
     for (int i = 0; i < 30; i++)
         sum += frame[i];
-    uint16_t checksum = (frame[30] << 8) | frame[31];
-    return (sum == checksum);
+    uint16_t chk = (frame[30] << 8) | frame[31];
+    PM25_DEBUG_PRINT("[PM25 DEBUG] Checksum calculé: 0x%04X, reçu: 0x%04X (pos 30-31)\n", sum, chk);
+    return (sum == chk);
+}
+
+// -----------------------------------------------------------------------------
+//  FONCTIONS D'INTERPRETATION QUALITE AIR
+// -----------------------------------------------------------------------------
+/**
+ * @brief Calcule le code de qualité d'air basé sur la valeur PM et le type
+ * @param pm Valeur PM mesurée
+ * @param type Type de mesure ("PM1.0", "PM2.5", "PM10")
+ * @return Code de qualité (1=Très bon, 2=Bon, ... 6=Très mauvais)
+ */
+int PM25_Quality_GetCode(uint16_t pm, const char *type)
+{
+    if (strcmp(type, "PM2.5") == 0)
+    {
+        if (pm <= 10)
+            return 1;
+        else if (pm <= 20)
+            return 2;
+        else if (pm <= 25)
+            return 3;
+        else if (pm <= 50)
+            return 4;
+        else if (pm <= 75)
+            return 5;
+        else
+            return 6;
+    }
+    else if (strcmp(type, "PM10") == 0)
+    {
+        if (pm <= 20)
+            return 1;
+        else if (pm <= 40)
+            return 2;
+        else if (pm <= 50)
+            return 3;
+        else if (pm <= 100)
+            return 4;
+        else if (pm <= 150)
+            return 5;
+        else
+            return 6;
+    }
+    else
+    {
+        if (pm <= 10)
+            return 1;
+        else if (pm <= 20)
+            return 2;
+        else if (pm <= 25)
+            return 3;
+        else if (pm <= 50)
+            return 4;
+        else if (pm <= 75)
+            return 5;
+        else
+            return 6;
+    }
 }
 
 /**
- * @brief Extrait les valeurs PM1.0, PM2.5, PM10 d'une trame
+ * @brief Interprète un code de qualité en informations lisibles
+ * @param code Code de qualité (1-6)
+ * @return Structure contenant emoji, label et description
  */
-void PM25_ExtractData(const uint8_t *frame, PM25_Data *data) {
-    data->pm1_0 = (frame[10] << 8) | frame[11];
-    data->pm2_5 = (frame[12] << 8) | frame[13];
-    data->pm10  = (frame[14] << 8) | frame[15];
+PM_StatusInfo PM25_Quality_InterpretCode(int code)
+{
+    switch (code)
+    {
+    case 1:
+        return (PM_StatusInfo){1, "🟢", "Très bon", "Qualité de l'air excellente."};
+    case 2:
+        return (PM_StatusInfo){2, "🟡", "Bon", "Qualité de l'air satisfaisante."};
+    case 3:
+        return (PM_StatusInfo){3, "🟠", "Moyen", "Qualité acceptable pour tous."};
+    case 4:
+        return (PM_StatusInfo){4, "🔴", "Dégradé", "Risque pour personnes sensibles."};
+    case 5:
+        return (PM_StatusInfo){5, "🟣", "Mauvais", "Risque pour la santé générale."};
+    case 6:
+        return (PM_StatusInfo){6, "⚫", "Très mauvais", "Évitez les activités extérieures."};
+    default:
+        return (PM_StatusInfo){0, "❓", "Inconnu", "Valeur non reconnue."};
+    }
+}
+
+// -----------------------------------------------------------------------------
+//  FONCTIONS D'INTERPRETATION RATIO
+// -----------------------------------------------------------------------------
+/**
+ * @brief Calcule le code de ratio PM2.5/PM10
+ * @param pm25 Valeur PM2.5
+ * @param pm10 Valeur PM10
+ * @return Code ratio (1=PM10 dominant, 2=équilibré, 3=PM2.5 dominant, 4=PM2.5 très dominant)
+ */
+int PM25_Ratio_GetCode(uint16_t pm25, uint16_t pm10)
+{
+    float ratio = pm10 > 0 ? (float)pm25 / pm10 : 0.0f;
+    if (ratio < 0.5f)
+        return 1; // PM10 dominant
+    else if (ratio < 0.8f)
+        return 2; // Ratio équilibré
+    else if (ratio < 1.2f)
+        return 3; // PM2.5 dominant
+    else
+        return 4; // PM2.5 très dominant
 }
 
 /**
- * @brief Affiche les valeurs et l'interprétation dans le terminal
+ * @brief Interprète un code de ratio PM2.5/PM10
+ * @param code Code ratio (1-4)
+ * @return Structure pastille (emoji, label, description)
  */
-void PM25_PrintStatus(const PM25_Data *data) {
-    PM_StatusInfo s1 = PM_Get_Status(data->pm1_0, "PM1.0");
-    PM_StatusInfo s25 = PM_Get_Status(data->pm2_5, "PM2.5");
-    PM_StatusInfo s10 = PM_Get_Status(data->pm10, "PM10");
-
-    printf("\r\n=== MESURES PM2.5 (SEN0177) ===\r\n\r\n");
-    printf("│ PM1.0 : %3u ug/m3 │ Indice %d │ %s %-18s│ %s\r\n", data->pm1_0, s1.index, s1.emoji, s1.label, s1.texte);
-    printf("│ PM2.5 : %3u ug/m3 │ Indice %d │ %s %-18s│ %s\r\n", data->pm2_5, s25.index, s25.emoji, s25.label, s25.texte);
-    printf("│ PM10  : %3u ug/m3 │ Indice %d │ %s %-18s│ %s\r\n", data->pm10, s10.index, s10.emoji, s10.label, s10.texte);
-    printf("\r\n");
-
-    int index_max = s25.index > s10.index ? s25.index : s10.index;
-    const char *emoji, *label, *msg;
-    if (index_max == 1) {
-        emoji = "🟢"; label = "Très bon"; msg = "Air pur, aucun risque.";
-    } else if (index_max == 2) {
-        emoji = "🟢"; label = "Bon"; msg = "Air sain, très faible risque.";
-    } else if (index_max == 3) {
-        emoji = "🟡"; label = "Moyen"; msg = "Qualité correcte, attention sensibles.";
-    } else if (index_max == 4) {
-        emoji = "🟠"; label = "Médiocre"; msg = "Limitez l'exposition prolongée.";
-    } else if (index_max == 5) {
-        emoji = "🟠"; label = "Très mauvais"; msg = "Évitez l'exposition, risque accru.";
-    } else {
-        emoji = "🔴"; label = "Extrêmement mauvais"; msg = "Danger, évacuation recommandée !";
-    }
-    printf("Résumé global : Indice %d │ %s %-18s│ %s\r\n\r\n", index_max, emoji, label, msg);
-}
-
-/**
- * @brief Parse une trame complète, extrait les valeurs, appelle le callback si défini
- */
-int PM25_ParseFrame(const uint8_t *frame, PM25_Data *data) {
-    if (!PM25_CheckHeader(frame)) {
-        return 0;
-    }
-    if (!PM25_CheckChecksum(frame)) {
-        return 0;
-    }
-    PM25_ExtractData(frame, data);
-    // Appel du callback utilisateur si défini
-    if (pm25_user_cb) {
-        pm25_user_cb(data);
-    }
-    return 1;
-}
-
-/**
- * @brief Fonction utilitaire à appeler dans la boucle principale pour gérer le buffer DMA et le parsing
- */
-void PM25_Loop(volatile uint8_t *data_ready_flag, UART_HandleTypeDef *huart, uint8_t *dma_buf, uint16_t dma_buf_size) {
-    if (*data_ready_flag) {
-        *data_ready_flag = 0;
-        PM25_Data data;
-        if (!PM25_ParseFrame(dma_buf, &data)) {
-            printf("Trame PM2.5 invalide !\r\n");
-        }
-        HAL_UART_Receive_DMA(huart, dma_buf, dma_buf_size);
+PM_StatusInfo PM25_Ratio_Interpret(int code)
+{
+    switch (code)
+    {
+    case 1:
+        return (PM_StatusInfo){1, "🔵", "PM10 dominant", "Pollution PM10 prédominante."};
+    case 2:
+        return (PM_StatusInfo){2, "🟡", "Équilibré", "Pollution mixte PM2.5/PM10."};
+    case 3:
+        return (PM_StatusInfo){3, "🟠", "PM2.5 dominant", "PM2.5 légèrement dominant."};
+    case 4:
+        return (PM_StatusInfo){4, "🔴", "PM2.5 très dominant", "Pollution PM2.5 prédominante."};
+    default:
+        return (PM_StatusInfo){0, "❓", "Inconnu", "Ratio non reconnu."};
     }
 }
