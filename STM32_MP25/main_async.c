@@ -1,5 +1,10 @@
 /* USER CODE BEGIN Header */
-
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -7,6 +12,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <string.h>
 #include "STM32_MP25.h"
 /* USER CODE END Includes */
 
@@ -28,14 +34,17 @@
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
-
+volatile uint8_t pm25_data_ready = 0;
+static PM25_FullData last_pm25_data;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
@@ -108,7 +117,6 @@ void display_pm25_data(PM25_FullData *donnees)
   float ratio = donnees->pm10_standard > 0 ? (float)donnees->pm2_5_standard / donnees->pm10_standard : 0.0f;
   printf("\nRatio PM2.5/PM10 : %.2f -> %s %s (%s)\n", ratio, info_ratio.emoji, info_ratio.label, info_ratio.description);
 }
-
 /* USER CODE END 0 */
 
 /**
@@ -140,6 +148,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
@@ -147,43 +156,40 @@ int main(void)
   printf("====================================================\n");
   printf("========= DEMO SEN0177 PM2.5 mode polling ==========\n");
   printf("====================================================\n\n");
-  PM25_SetDebugMode(1); // Activation du mode debug
-  // Initialisation du capteur avec la librairie
   printf("Initialisation du capteur...\n");
-  unsigned long interval_ms = 0;
-  PM25_FullData donnees;                 // Structure de données complète
+  PM25_SetDebugMode(0);                  // Activation du mode debug
   PM25_Init(&huart1);                    // Initialisation du capteur
   PM25_SetControlPin(GPIOA, GPIO_PIN_8); // Configuration de la pin SET
   printf("✅ Capteur initialisé\n");
-  printf("====================================================\n\n");
-  printf("⏳ Attente de données...\n");
-
+  printf("====================================================\n");
+  unsigned long interval_ms = 0; // 0 = mode continu, >0 mode périodique
+  if (interval_ms == 0)
+  {
+    printf("Mode DMA continu - Lecture en continu (interval_ms = %lu)\n", interval_ms);
+  }
+  else
+  {
+    printf("Mode DMA périodique - Lecture toutes les %lu ms\n", interval_ms);
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    int result = PM25_Polling_ReadFull(&huart1, &donnees, interval_ms);
-    if (result == 1)
-    {
-      printf("✅ Données reçues\n");
-      // Afficher la trame en hexa
-      printf("Trame reçue (32 octets): ");
-      for (int i = 0; i < PM25_FRAME_LEN; i++)
-      {
-        printf("%02X ", donnees.raw_frame[i]);
-      }
-      printf("\n");
-      display_pm25_data(&donnees);
-    }
-    else if (result == 0)
-    {
-      printf("❌ Erreur lecture\n\n");
-    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    int result = PM25_DMA_ReadFull_IT(&huart1, &last_pm25_data, interval_ms); // Lecture des données
+
+    if (result == 1) // Données prêtes
+    {
+      display_pm25_data(&last_pm25_data); // Affichage des données
+    }
+    else if (result == 0) // Données non prêtes (timeout ou erreur)
+    {
+      printf("❌ Échec de lecture PM2.5 (timeout ou erreur)\n"); // Gérer l'erreur selon les besoins
+    }
   }
   /* USER CODE END 3 */
 }
@@ -266,7 +272,6 @@ static void MX_USART1_UART_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USART1_Init 2 */
-
   /* USER CODE END USART1_Init 2 */
 }
 
@@ -300,8 +305,22 @@ static void MX_USART2_UART_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USART2_Init 2 */
-
   /* USER CODE END USART2_Init 2 */
+}
+
+/**
+ * Enable DMA controller clock
+ */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 }
 
 /**
@@ -351,7 +370,6 @@ static void MX_GPIO_Init(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
   while (1)
   {
@@ -370,7 +388,7 @@ void assert_failed(uint8_t *file, unsigned long line)
 {
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
